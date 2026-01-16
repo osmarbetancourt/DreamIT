@@ -1,0 +1,48 @@
+# Multi-stage production Dockerfile for Next.js frontend
+FROM node:20-alpine AS builder
+WORKDIR /app
+
+# Build-time args (public envs must be set at build time for Next.js)
+ARG NEXT_PUBLIC_API_BASE_URL
+ARG NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_GOOGLE_CLIENT_ID
+ENV NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL}
+ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+ENV NEXT_PUBLIC_GOOGLE_CLIENT_ID=${NEXT_PUBLIC_GOOGLE_CLIENT_ID}
+# Note: do NOT set NODE_ENV here — keep builder in default mode so devDependencies (TypeScript) are installed
+ARG NODE_ENV
+
+# Install build tools and dependencies (including dev deps)
+RUN apk add --no-cache python3 make g++
+COPY package.json package-lock.json* ./
+# Ensure devDependencies (TypeScript) are installed even if a build ARG sets NODE_ENV=production
+RUN NODE_ENV=development npm ci --no-audit --no-fund
+
+# Copy source and build
+COPY . .
+RUN npm run build
+
+# Remove dev dependencies to keep node_modules small
+RUN npm prune --production
+
+FROM node:20-alpine AS runtime
+WORKDIR /app
+
+# Create runtime user early so we can use COPY --chown if supported
+RUN adduser -D app
+
+# Ensure runtime runs in production mode
+ENV NODE_ENV=production
+
+# Copy only needed artifacts from builder
+COPY --from=builder --chown=app:app /app/.next /app/.next
+COPY --from=builder --chown=app:app /app/package.json /app/package.json
+COPY --from=builder --chown=app:app /app/node_modules /app/node_modules
+
+# Set minimal runtime permissions (ownership already set by COPY --chown)
+RUN chmod 775 /app
+
+USER app
+
+EXPOSE 3000
+CMD ["npm", "start"]

@@ -1,0 +1,19 @@
+FROM node:20-alpine AS base
+WORKDIR /app
+ENV NEXT_TELEMETRY_DISABLED=1
+
+# Accept build-time public env vars for Next.js
+ARG NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_API_BASE_URL
+ARG NEXT_PUBLIC_GOOGLE_CLIENT_ID
+ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+ENV NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL}
+ENV NEXT_PUBLIC_GOOGLE_CLIENT_ID=${NEXT_PUBLIC_GOOGLE_CLIENT_ID}
+
+FROM base AS deps
+COPY package.json package-lock.json* .npmrc* ./
+RUN npm install --legacy-peer-deps
+
+FROM deps AS dev
+COPY . .
+CMD ["npm", "run", "dev"]

@@ -1,0 +1,33 @@
+celery==5.3.6
+redis==5.0.4
+asgiref==3.9.1
+certifi==2025.8.3
+charset-normalizer==3.4.2
+colorama==0.4.6
+diff-match-patch==20241021
+Django>=5.2.7
+django-cors-headers==4.3.1
+django-import-export==4.3.9
+django-stubs==5.2.2
+django-stubs-ext==5.2.2
+djangorestframework==3.15.2
+djangorestframework-stubs==3.16.1
+gunicorn==23.0.0
+psycopg[c]
+pydantic==2.11.7
+pydantic_core==2.33.2
+python-dotenv==1.0.1
+uvicorn==0.32.0
+djangorestframework-simplejwt==5.3.1
+requests>=2.32.4,<3.0
+sqlparse==0.5.3
+tzdata==2025.2
+urllib3==2.6.0
+whitenoise==6.9.0
+gspread == 6.2.1
+google-auth == 2.40.3
+pandas==2.3.2
+openpyxl==3.1.5
+adrf==0.1.11
+curl_adapter==1
+boto3>=1.26.0
