@@ -5,13 +5,8 @@ on:
 
 jobs:
   deploy:
-    name: Deploy DragonLog
+    name: Deploy DreamIT
     runs-on: ubuntu-latest
-    env:
-      HETZNER_HOST: ${{ secrets.HETZNER_HOST }}
-      HETZNER_USER: ${{ secrets.HETZNER_USER }}
-      HETZNER_PASSWORD: ${{ secrets.HETZNER_PASSWORD }}
-      HETZNER_PROJECT_PATH: ${{ secrets.HETZNER_PROJECT_PATH }}
     environment: production
 
     steps:
@@ -27,22 +22,14 @@ jobs:
           NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL }}
           EOF
 
-      - name: Sync project to Hetzner host
+      - name: Copy files to Hetzner server
         run: |
-          sshpass -p "$HETZNER_PASSWORD" rsync -az --delete \
-            --exclude '.git' \
-            --exclude 'node_modules' \
-            --exclude '.github/workflows/deploy.yml' \
-            -e "ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null" \
-            ./ ${HETZNER_USER}@${HETZNER_HOST}:${HETZNER_PROJECT_PATH}
+          sshpass -p "${{ secrets.HETZNER_PASSWORD }}" rsync -az --delete --include='.env' --include='docker-compose.prod.yml' --include='Caddyfile' --exclude='.git*' -e "ssh -o StrictHostKeyChecking=no" ./ ${{ secrets.HETZNER_USER }}@${{ secrets.HETZNER_HOST }}:${{ secrets.HETZNER_PROJECT_PATH }}
 
-      - name: Apply docker-compose
-        env:
-          SSH_CMD: ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      - name: Deploy on Hetzner server
         run: |
-          sshpass -p "$HETZNER_PASSWORD" $SSH_CMD ${HETZNER_USER}@${HETZNER_HOST} "\
-            set -euo pipefail; \
-            cd ${HETZNER_PROJECT_PATH}; \
+          sshpass -p "${{ secrets.HETZNER_PASSWORD }}" ssh -o StrictHostKeyChecking=no ${{ secrets.HETZNER_USER }}@${{ secrets.HETZNER_HOST }} '
+            cd ${{ secrets.HETZNER_PROJECT_PATH }} &&
             docker compose -f docker-compose.prod.yml pull; \
             docker compose -f docker-compose.prod.yml up -d --build \
           "
