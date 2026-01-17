@@ -37,20 +37,20 @@ const DEFAULT_PATH_OVERRIDES: Record<number, number> = {
   4: 900 * SPEED_FACTOR,  // e inner
   0: 900 * SPEED_FACTOR,  // a outer (slow down a)
   1: 700 * SPEED_FACTOR,  // a inner
-  7: 1300 * SPEED_FACTOR, // m
-  6: 800 * SPEED_FACTOR,  // I
-  8: 900 * SPEED_FACTOR,  // T
+  7: 700 * SPEED_FACTOR, // m
+  6: 700 * SPEED_FACTOR,  // I
+  8: 400 * SPEED_FACTOR,  // T
   10: 700 * SPEED_FACTOR, // dot / star
-  11: 900 * SPEED_FACTOR, // final flourish (if present)
+  11: 700 * SPEED_FACTOR, // final flourish (if present)
 };
 const DEFAULT_PATH_OVERLAPS: Record<number, number> = {
   9: 1820 * SPEED_FACTOR, // after D inner (D → r)
   5: 400 * SPEED_FACTOR,  // after r (r → e)
   4: 1700 * SPEED_FACTOR, // after e inner (e → a)
   1: 1300 * SPEED_FACTOR, // after a inner (a → m)
-  7: 1300 * SPEED_FACTOR,  // after m (m → I)
-  6: 1 * SPEED_FACTOR -4000,  // after I (I → T)
-  8: 1 * SPEED_FACTOR,  // after T (T → dot)
+  7: 500 * SPEED_FACTOR,  // after m (m → I)
+  6: 500 * SPEED_FACTOR,  // after I (I → T)
+  8: 500 * SPEED_FACTOR,  // after T (T → dot)
 };
 
 function parseViewBox(vb: string) {
