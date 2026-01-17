@@ -7,6 +7,11 @@ jobs:
   deploy:
     name: Deploy DragonLog
     runs-on: ubuntu-latest
+    env:
+      HETZNER_HOST: ${{ secrets.HETZNER_HOST }}
+      HETZNER_USER: ${{ secrets.HETZNER_USER }}
+      HETZNER_PASSWORD: ${{ secrets.HETZNER_PASSWORD }}
+      HETZNER_PROJECT_PATH: ${{ secrets.HETZNER_PROJECT_PATH }}
     environment: production
 
     steps:
