@@ -5,10 +5,29 @@ import React, { useEffect, useRef, useState } from "react";
 type Props = {
   durationMs?: number; // total duration for all strokes
   className?: string;
+  durationsOverride?: Record<number, number>;
 };
 
 const FALLBACK_VIEWBOX = "0 0 1024 1024";
 const STROKE_COLOR = "#0ea5e9";
+const MIN_STROKE_MS = 550;
+// Default explicit per-path overrides (ms) to slow specific letters (indexes refer to
+// paths after the background/frame is removed). Adjust as needed.
+const DEFAULT_PATH_OVERRIDES: Record<number, number> = {
+  2: 1400, // D outer
+  9: 900,  // D inner
+  3: 1100, // e outer
+  4: 700,  // e inner
+  0: 900,  // a outer (slow down a)
+  1: 700,  // a inner
+};
+// Overlap (ms) to subtract after a given path index so the following stroke starts earlier.
+// Keys are path indexes (after the background is removed). Positive value shortens gap.
+const DEFAULT_PATH_OVERLAPS: Record<number, number> = {
+  9: 1500, // after D inner, start next earlier (close D→r gap)
+  4: 900,  // after e inner, start a earlier
+  1: 800,  // after a inner, start m earlier
+};
 
 function parseViewBox(vb: string) {
   const parts = vb.split(/\s+/).map(Number);
@@ -18,7 +37,7 @@ function parseViewBox(vb: string) {
   return { x: 0, y: 0, width: 1024, height: 1024 };
 }
 
-const WriteAnimation: React.FC<Props> = ({ durationMs = 5600, className }) => {
+const WriteAnimation: React.FC<Props> = ({ durationMs = 5600, className, durationsOverride }) => {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const pathRefs = useRef<(SVGPathElement | null)[]>([]);
   const [pathLengths, setPathLengths] = useState<number[]>([]);
@@ -89,6 +108,69 @@ const WriteAnimation: React.FC<Props> = ({ durationMs = 5600, className }) => {
     return () => resizeObserver.disconnect();
   }, [viewDims.width]);
 
+  // Compute per-stroke durations honoring explicit overrides.
+  const overrides = { ...(DEFAULT_PATH_OVERRIDES || {}), ...(durationsOverride || {}) };
+
+  // Base weights for flexible strokes (non-overridden): use measured length
+  const baseWeights = orderedIndexes.map((idx) => pathLengths[idx] || 1);
+  const strokeCount = orderedIndexes.length || 1;
+
+  // Clamp overrides to at least MIN_STROKE_MS and collect totals.
+  const clampedOverrides: Record<number, number> = {};
+  let sumOverrides = 0;
+  orderedIndexes.forEach((idx) => {
+    if (overrides[idx]) {
+      const v = Math.max(MIN_STROKE_MS, Math.round(overrides[idx]));
+      clampedOverrides[idx] = v;
+      sumOverrides += v;
+    }
+  });
+
+  // Target total time budget (allow a little extra headroom so overrides can breathe).
+  const minTotal = MIN_STROKE_MS * strokeCount;
+  const targetTotal = Math.max(durationMs * 1.25, minTotal);
+
+  // Flexible strokes count and weight sum.
+  const flexibleIndexes = orderedIndexes.filter((idx) => !(idx in clampedOverrides));
+  const flexibleCount = flexibleIndexes.length;
+  const flexibleWeightSum = flexibleIndexes.reduce((s, idx) => s + (baseWeights[orderedIndexes.indexOf(idx)] || 1), 0) || 1;
+
+  // Time available to distribute among flexible strokes (after honoring overrides and their MINs).
+  const baseFlexibleMin = MIN_STROKE_MS * flexibleCount;
+  const remainingPool = Math.max(0, targetTotal - sumOverrides - baseFlexibleMin);
+
+  const durations: number[] = new Array(strokeCount).fill(MIN_STROKE_MS);
+  // assign overrides first
+  orderedIndexes.forEach((idx, i) => {
+    if (idx in clampedOverrides) durations[i] = clampedOverrides[idx];
+  });
+
+  // distribute remainingPool to flexible strokes proportionally
+  flexibleIndexes.forEach((idx) => {
+    const i = orderedIndexes.indexOf(idx);
+    const w = baseWeights[i] || 1;
+    const extra = Math.round((remainingPool * w) / flexibleWeightSum);
+    durations[i] = MIN_STROKE_MS + extra;
+  });
+
+  // Apply optional overlaps: allow next stroke to start earlier by subtracting overlap ms
+  const overlaps = { ...(DEFAULT_PATH_OVERLAPS || {}) } as Record<number, number>;
+  const delays: number[] = new Array(durations.length).fill(0);
+  for (let i = 0; i < durations.length; i++) {
+    if (i === 0) {
+      delays[i] = 0;
+      continue;
+    }
+    const prevIdx = orderedIndexes[i - 1];
+    const overlap = Math.max(0, overlaps[prevIdx] || 0);
+    delays[i] = Math.max(0, delays[i - 1] + durations[i - 1] - overlap);
+  }
+
+  if (process.env.NODE_ENV !== "production") {
+    // Debug timing output for tuning overlaps and durations
+    // eslint-disable-next-line no-console
+    console.log("write-animation timing", { orderedIndexes, durations, delays, overlaps, overrides: DEFAULT_PATH_OVERRIDES });
+  }
 
   return (
     <div
@@ -121,8 +203,8 @@ const WriteAnimation: React.FC<Props> = ({ durationMs = 5600, className }) => {
             orderedIndexes.map((pathIdx, seqIdx) => {
               const d = paths[pathIdx];
               const len = pathLengths[pathIdx] || 1;
-              const perStroke = Math.max(500, durationMs / paths.length);
-              const delay = seqIdx * perStroke;
+              const perStroke = durations[seqIdx] || Math.max(500, durationMs / paths.length);
+              const delay = delays[seqIdx] || seqIdx * perStroke;
               return (
                 <path
                   key={pathIdx}

@@ -14,6 +14,22 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 	- T bar+stem: index 8 (x775-876, y442-581)
 	- i-dot: index 10 outer (x679-722, y425-466) and 11 inner (x698-704, y444-450)
 - The animation order array lives in [app/components/WriteAnimation.tsx](app/components/WriteAnimation.tsx#L50-L60) as `dreamItOrder = [2, 9, 5, 3, 4, 0, 1, 7, 6, 8, 10, 11]`; edit there if the SVG changes.
+- You can set precise per-path durations two ways:
+	- Edit the defaults inside `WriteAnimation` at `DEFAULT_PATH_OVERRIDES`.
+	- Or pass a `durationsOverride` prop to the `WriteAnimation` component (a `Record<number, number>` mapping path-index → milliseconds).
+
+Example override mapping (ms):
+```
+{ 2: 1400, 9: 900, 3: 1100, 4: 700 }
+```
+This lets you slow the `D` and `e` strokes explicitly without changing the SVG.
+
+You can also set small overlaps so the next stroke starts slightly before the previous finishes.
+Defaults live in `WriteAnimation` as `DEFAULT_PATH_OVERLAPS`. Example:
+```
+{ 9: 400, 4: 350 }
+```
+This shortens the pause after path `9` (D inner) and after path `4` (e inner).
 
 ## Getting Started
 
