@@ -30,6 +30,7 @@ Defaults live in `WriteAnimation` as `DEFAULT_PATH_OVERLAPS`. Example:
 { 9: 400, 4: 350 }
 ```
 This shortens the pause after path `9` (D inner) and after path `4` (e inner).
+Currently overlaps are disabled for debugging. Previous working set (before applying `SPEED_FACTOR`): `{ 9: 1500, 4: 900, 1: 800 }` — with `SPEED_FACTOR = 3` that becomes `{ 9: 4500, 4: 2700, 1: 2400 }`.
 
 ## Getting Started
 
