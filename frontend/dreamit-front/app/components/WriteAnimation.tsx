@@ -26,6 +26,7 @@ const WriteAnimation: React.FC<Props> = ({ durationMs = 5600, className }) => {
   const shellRef = useRef<HTMLDivElement | null>(null);
   const [reduceMotion, setReduceMotion] = useState<boolean>(false);
   const [paths, setPaths] = useState<string[]>([]);
+  const [orderedIndexes, setOrderedIndexes] = useState<number[]>([]);
   const [viewBox, setViewBox] = useState<string>(FALLBACK_VIEWBOX);
   const [viewDims, setViewDims] = useState(() => parseViewBox(FALLBACK_VIEWBOX));
 
@@ -46,11 +47,16 @@ const WriteAnimation: React.FC<Props> = ({ durationMs = 5600, className }) => {
         .map((p) => p.getAttribute("d"))
         .filter(Boolean) as string[];
 
-      // Skip the first path if it's the outer frame; keep the rest.
+      // Skip the first path (outer frame); keep the rest as drawable strokes.
       const usable = parsedPaths.length > 1 ? parsedPaths.slice(1) : parsedPaths;
       setViewBox(vb);
       setViewDims(dims);
       setPaths(usable);
+      const defaultOrder = usable.map((_, i) => i);
+      // Map to the word order: D → r → e → a → m → I → T → dot.
+      // Some letters have two strokes (outline + inner fill), so they sit back-to-back.
+      const dreamItOrder = [2, 9, 5, 3, 4, 0, 1, 7, 6, 8, 10, 11];
+      setOrderedIndexes(dreamItOrder.length === usable.length ? dreamItOrder : defaultOrder);
     };
     run().catch(() => {
       // fallback to empty on error
@@ -112,15 +118,16 @@ const WriteAnimation: React.FC<Props> = ({ durationMs = 5600, className }) => {
               Loading...
             </text>
           ) : (
-            paths.map((d, idx) => {
-              const len = pathLengths[idx] || 1;
+            orderedIndexes.map((pathIdx, seqIdx) => {
+              const d = paths[pathIdx];
+              const len = pathLengths[pathIdx] || 1;
               const perStroke = Math.max(500, durationMs / paths.length);
-              const delay = idx * perStroke;
+              const delay = seqIdx * perStroke;
               return (
                 <path
-                  key={idx}
+                  key={pathIdx}
                   ref={(el) => {
-                    pathRefs.current[idx] = el;
+                    pathRefs.current[pathIdx] = el;
                   }}
                   d={d}
                   fill="none"

@@ -1,5 +1,20 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## DreamIT stroke animation notes
+
+- Color: update `STROKE_COLOR` in [app/components/WriteAnimation.tsx](app/components/WriteAnimation.tsx#L10-L12) to change the stroke hue for the SVG handwriting.
+- SVG source: [public/vectorized.svg](public/vectorized.svg). Path 0 is the outer frame (skipped in animation). Paths 1-12 are the strokes used for the word.
+- Stroke mapping (after removing the frame), aligned to D → r → e → a → m → I → T → dot:
+	- D outer: index 2 (bbox ~x148-272, y442-582); D inner: index 9 (x157-258, y451-573)
+	- r: index 5 (x289-353, y483-581)
+	- e: index 3 (x349-454, y481-583) plus e inner index 4 (x367-443, y487-530)
+	- a: index 0 (x467-562, y480-583) plus a inner index 1 (x478-554, y487-576)
+	- m: index 7 (x586-718, y479-581)
+	- I stem: index 6 (x746-755, y440-581)
+	- T bar+stem: index 8 (x775-876, y442-581)
+	- i-dot: index 10 outer (x679-722, y425-466) and 11 inner (x698-704, y444-450)
+- The animation order array lives in [app/components/WriteAnimation.tsx](app/components/WriteAnimation.tsx#L50-L60) as `dreamItOrder = [2, 9, 5, 3, 4, 0, 1, 7, 6, 8, 10, 11]`; edit there if the SVG changes.
+
 ## Getting Started
 
 First, run the development server:
