@@ -28,8 +28,9 @@ jobs:
 
       - name: Deploy on Hetzner server
         run: |
-          sshpass -p "${{ secrets.HETZNER_PASSWORD }}" ssh -o StrictHostKeyChecking=no ${{ secrets.HETZNER_USER }}@${{ secrets.HETZNER_HOST }} '
-            cd ${{ secrets.HETZNER_PROJECT_PATH }} &&
-            docker compose -f docker-compose.prod.yml pull; \
+          sshpass -p "${{ secrets.HETZNER_PASSWORD }}" ssh -o StrictHostKeyChecking=no ${{ secrets.HETZNER_USER }}@${{ secrets.HETZNER_HOST }} <<'SSH'
+            set -euo pipefail
+            cd ${{ secrets.HETZNER_PROJECT_PATH }}
+            docker compose -f docker-compose.prod.yml pull
             docker compose -f docker-compose.prod.yml up -d --build
-          "
+          SSH
