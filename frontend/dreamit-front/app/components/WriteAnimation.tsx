@@ -6,11 +6,13 @@ type Props = {
   durationMs?: number; // total duration for all strokes
   className?: string;
   durationsOverride?: Record<number, number>;
+  showHead?: boolean;
 };
 
 const FALLBACK_VIEWBOX = "0 0 1024 1024";
 const STROKE_COLOR = "#0ea5e9";
 const MIN_STROKE_MS = 550;
+const HEAD_SIZE = 72;
 // Default explicit per-path overrides (ms) to slow specific letters (indexes refer to
 // paths after the background/frame is removed). Adjust as needed.
 const DEFAULT_PATH_OVERRIDES: Record<number, number> = {
@@ -37,9 +39,11 @@ function parseViewBox(vb: string) {
   return { x: 0, y: 0, width: 1024, height: 1024 };
 }
 
-const WriteAnimation: React.FC<Props> = ({ durationMs = 5600, className, durationsOverride }) => {
+const WriteAnimation: React.FC<Props> = ({ durationMs = 5600, className, durationsOverride, showHead = true }) => {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const pathRefs = useRef<(SVGPathElement | null)[]>([]);
+  const headRef = useRef<SVGGElement | null>(null);
+  const rafRef = useRef<number | null>(null);
   const [pathLengths, setPathLengths] = useState<number[]>([]);
   const [scale, setScale] = useState<number>(1);
   const shellRef = useRef<HTMLDivElement | null>(null);
@@ -172,6 +176,81 @@ const WriteAnimation: React.FC<Props> = ({ durationMs = 5600, className, duratio
     console.log("write-animation timing", { orderedIndexes, durations, delays, overlaps, overrides: DEFAULT_PATH_OVERRIDES });
   }
 
+  useEffect(() => {
+    if (rafRef.current) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    }
+    if (reduceMotion || !showHead) {
+      if (headRef.current) headRef.current.style.display = "none";
+      return undefined;
+    }
+
+    const head = headRef.current;
+    if (head) head.style.display = "block";
+
+    const allReady = orderedIndexes.every((idx) => {
+      const el = pathRefs.current[idx];
+      return el && (pathLengths[idx] || el.getTotalLength());
+    });
+    if (!allReady) return undefined;
+
+    const totalEnd = (delays[delays.length - 1] || 0) + (durations[durations.length - 1] || 0);
+    const start = performance.now();
+
+    const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
+
+    const tick = (now: number) => {
+      const t = now - start;
+      const lastIdx = orderedIndexes.length - 1;
+      if (t > totalEnd + 200) return;
+
+      // find active stroke
+      let active = lastIdx;
+      for (let i = 0; i < delays.length; i++) {
+        if (t < delays[i] + durations[i]) {
+          active = i;
+          break;
+        }
+      }
+
+      const pathIdx = orderedIndexes[active];
+      const pathEl = pathRefs.current[pathIdx];
+      if (!pathEl) {
+        rafRef.current = requestAnimationFrame(tick);
+        return;
+      }
+
+      const len = pathLengths[pathIdx] || pathEl.getTotalLength();
+      if (!len) {
+        rafRef.current = requestAnimationFrame(tick);
+        return;
+      }
+
+      const startOffset = delays[active] || 0;
+      const progress = clamp((t - startOffset) / (durations[active] || 1), 0, 1);
+      const dist = len * progress;
+      const ahead = clamp(dist + Math.max(1, len * 0.01), 0, len);
+      const p1 = pathEl.getPointAtLength(dist);
+      const p2 = pathEl.getPointAtLength(ahead);
+      const angle = (Math.atan2(p2.y - p1.y, p2.x - p1.x) * 180) / Math.PI;
+
+      if (head) {
+        head.setAttribute(
+          "transform",
+          `translate(${p1.x},${p1.y}) rotate(${angle}) translate(${-HEAD_SIZE / 2},${-HEAD_SIZE / 2})`
+        );
+      }
+
+      rafRef.current = requestAnimationFrame(tick);
+    };
+
+    rafRef.current = requestAnimationFrame(tick);
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
+  }, [reduceMotion, showHead, durations, delays, orderedIndexes, pathLengths, paths]);
+
   return (
     <div
       className={`write-shell ${className ?? ""}`.trim()}
@@ -231,6 +310,12 @@ const WriteAnimation: React.FC<Props> = ({ durationMs = 5600, className, duratio
               );
             })
           )}
+
+          {!reduceMotion && showHead ? (
+            <g ref={headRef} style={{ pointerEvents: "none", display: "none" }}>
+              <image href="/top_ae86_2d_wbg.svg" width={HEAD_SIZE} height={HEAD_SIZE} />
+            </g>
+          ) : null}
         </svg>
 
         <span className="sr-only">DreamIT</span>
