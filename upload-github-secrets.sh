@@ -2,13 +2,13 @@
 # Upload .env-style secrets to a GitHub repository environment (Linux/macOS)
 # Requirements: GitHub CLI (gh) installed and authenticated with repo write perms
 # Usage:
-#   ./upload-github-secrets.sh -f prod.env -r osmarbetancourt/gym-app -e production
+#   ./upload-github-secrets.sh -f .env -r osmarbetancourt/DreamIT -e production
 
 set -euo pipefail
 shopt -s extglob  # enable +() patterns used for trimming
 
-ENV_FILE="prod.env"
-REPO="osmarbetancourt/gym-app"
+ENV_FILE=".env"
+REPO="osmarbetancourt/DreamIT"
 ENVIRONMENT="production"
 
 usage() {
@@ -16,8 +16,8 @@ usage() {
 Usage: ./upload-github-secrets.sh [-f env_file] [-r owner/repo] [-e environment]
 
 Options:
-  -f  Path to env file (default: prod.env)
-  -r  GitHub repo in owner/name format (default: osmarbetancourt/gym-app)
+  -f  Path to env file (default: .env)
+  -r  GitHub repo in owner/name format (default: osmarbetancourt/DreamIT)
   -e  GitHub environment name (default: production)
 EOF
 }

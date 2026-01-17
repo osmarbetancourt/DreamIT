@@ -1,61 +1,21 @@
-version: "3.9"
-
 services:
-  backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    env_file:
-      - .env
-    environment:
-      - DJANGO_SETTINGS_MODULE=gym_project.settings
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_started
-    restart: unless-stopped
-    ports:
-      - "127.0.0.1:8000:8000"
-    command: ["/app/entrypoint.sh"]
-
   frontend:
     build:
-      context: ./frontend/gym-app
+      context: ./frontend/dreamit-front
       dockerfile: Dockerfile.prod
       args:
-        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL}
-        NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${NEXT_PUBLIC_GOOGLE_CLIENT_ID}
+        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL}
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+    env_file:
+      - .env
     environment:
       - NODE_ENV=production
       - PORT=3000
-    depends_on:
-      - backend
-    restart: unless-stopped
     ports:
-      - "127.0.0.1:3000:3000"
-
-  db:
-    image: postgres:16-alpine
+      - "3000:3000"
     restart: unless-stopped
-    env_file:
-      - .env
-    volumes:
-      - db_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
-      interval: 10s
-      timeout: 5s
-      retries: 6
-
-  redis:
-    image: redis:7-alpine
-    restart: unless-stopped
-    command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
-    volumes:
-      - ./redis.conf:/usr/local/etc/redis/redis.conf:ro
-    ports:
-      - "127.0.0.1:6379:6379"
+    networks:
+      - web
 
   caddy:
     image: caddy:2.8
@@ -69,9 +29,13 @@ services:
       - caddy_config:/config
     depends_on:
       - frontend
-      - backend
+    networks:
+      - web
+
+networks:
+  web:
+    driver: bridge
 
 volumes:
-  db_data:
   caddy_data:
   caddy_config:

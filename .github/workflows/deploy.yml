@@ -1,0 +1,49 @@
+name: Deploy to Hetzner
+
+on:
+  workflow_dispatch:
+
+env:
+  HETZNER_HOST: ${{ secrets.HETZNER_HOST }}
+  HETZNER_USER: ${{ secrets.HETZNER_USER }}
+  HETZNER_PASSWORD: ${{ secrets.HETZNER_PASSWORD }}
+  HETZNER_PROJECT_PATH: ${{ secrets.HETZNER_PROJECT_PATH }}
+
+jobs:
+  deploy:
+    name: Deploy DragonLog
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install sshpass
+        run: sudo apt-get update && sudo apt-get install -y sshpass
+
+      - name: Generate production env file
+        run: |
+          cat <<'EOF' > .env
+          NEXT_PUBLIC_SITE_URL=${{ secrets.NEXT_PUBLIC_SITE_URL }}
+          NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL }}
+          EOF
+
+      - name: Sync project to Hetzner host
+        run: |
+          sshpass -p "$HETZNER_PASSWORD" rsync -az --delete \
+            --exclude '.git' \
+            --exclude 'node_modules' \
+            --exclude '.github/workflows/deploy.yml' \
+            -e "ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null" \
+            ./ ${HETZNER_USER}@${HETZNER_HOST}:${HETZNER_PROJECT_PATH}
+
+      - name: Apply docker-compose
+        env:
+          SSH_CMD: ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+        run: |
+          sshpass -p "$HETZNER_PASSWORD" $SSH_CMD ${HETZNER_USER}@${HETZNER_HOST} "\
+            set -euo pipefail; \
+            cd ${HETZNER_PROJECT_PATH}; \
+            docker compose -f docker-compose.prod.yml pull; \
+            docker compose -f docker-compose.prod.yml up -d --build \
+          "
