@@ -14,11 +14,9 @@ export default function Scene({
 }: any) {
   
   return (
-    <div
-      className={`fixed inset-0 z-0 bg-black transition-opacity duration-[1500ms] ease-out ${
+    <div className={`fixed inset-0 z-0 bg-black transition-opacity duration-[1500ms] ease-out dreamit-hidden-for-loader ${
         visible ? 'opacity-100' : 'opacity-0'
-      }`}
-    >
+      }`}>
       <Canvas
         gl={{ 
           antialias: false, 

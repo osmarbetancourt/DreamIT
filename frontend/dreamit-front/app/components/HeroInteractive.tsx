@@ -139,7 +139,7 @@ export default function HeroInteractive({ title, subtitle }: HeroProps) {
   }, []);
 
   return (
-    <div className="relative w-full rounded-2xl overflow-hidden bg-black/20">
+    <div className="relative w-full rounded-2xl overflow-hidden bg-black/20 dreamit-hidden-for-loader">
       <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
         {/* 3. Use the props here instead of hardcoded strings */}
         <h1 className="text-4xl sm:text-6xl font-bold text-white drop-shadow">{title}</h1>

@@ -105,40 +105,44 @@ export default function IntroLoader({ progress, onAnimationComplete, locale = 'e
   // Exit sequence: simple lift-only approach for both desktop and mobile.
   useEffect(() => {
     if (displayProgress !== 100 || isExiting) return;
-
     const timeouts: number[] = [];
+    const liftDuration = 1600; // CSS transition duration for lift
+    const blackHold = 300; // full-black hold
+    const finalFade = 900; // final fade duration
+    const total = liftDuration + blackHold + finalFade;
+
     const startExit = () => {
+      // mark exiting state and apply lift class
       setIsExiting(true);
       setExitClass('lift');
 
-      // durations (ms)
-      const liftDuration = 1600; // CSS transition duration for lift
-      const blackHold = 300; // full-black hold
-      const finalFade = 900; // final fade duration
+      // add a global class so other components can animate in sync
+      try {
+        document.documentElement.classList.add('dreamit-loader-exiting');
+      } catch (e) {}
 
-      const total = liftDuration + blackHold + finalFade;
-      const finish = window.setTimeout(() => {
+      // after lift + blackHold, add final-fade to start opacity fade
+      timeouts.push(window.setTimeout(() => setExitClass('lift final-fade'), liftDuration + blackHold));
+
+      // when all is done, finalize and notify parent exactly once
+      timeouts.push(window.setTimeout(() => {
+        try {
+          // Mark the loaded state persistently, then remove the transient exiting class
+          document.documentElement.classList.add('dreamit-loaded');
+          document.documentElement.classList.remove('dreamit-loader-exiting');
+        } catch (e) {}
         onAnimationComplete();
-      }, total);
-      timeouts.push(finish);
+      }, total));
     };
 
+    // small delay before starting exit so radar/sweep feels natural
     timeouts.push(window.setTimeout(startExit, 800));
 
     return () => timeouts.forEach((t) => clearTimeout(t));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [displayProgress, onAnimationComplete]);
 
-  // Notify parent to unmount
-  useEffect(() => {
-    if (isExiting) {
-      const duration = 350; // fade duration
-      const timeout = setTimeout(() => {
-        onAnimationComplete();
-      }, duration);
-      return () => clearTimeout(timeout);
-    }
-  }, [isExiting, onAnimationComplete]);
+  // NOTE: final onAnimationComplete is handled in the exit sequencing above.
 
   // particle burst removed — using a unified fade exit for all devices
 

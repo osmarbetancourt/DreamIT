@@ -3,7 +3,7 @@ import React from "react";
 
 export default function HeroOverlay({ title, subtitle }: { title: string; subtitle: string }) {
   return (
-    <div className="absolute inset-0 z-10 flex flex-col items-center justify-center pointer-events-none px-4">
+    <div className="absolute inset-0 z-10 flex flex-col items-center justify-center pointer-events-none px-4 dreamit-hidden-for-loader">
       <div className="text-center relative">
         {/* Main Title with blending for that "Space" look */}
         <h1 className="text-5xl md:text-8xl font-bold tracking-tighter text-white mix-blend-overlay opacity-90 drop-shadow-[0_0_30px_rgba(255,255,255,0.3)]">
