@@ -35,8 +35,8 @@ export default function IntroLoader({ progress, onAnimationComplete, locale = 'e
   const [isExiting, setIsExiting] = useState(false);
   const [logIndex, setLogIndex] = useState(0);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
   const [animateSweep, setAnimateSweep] = useState(false);
+  const [exitClass, setExitClass] = useState('');
 
   // Sync logs with progress
   useEffect(() => {
@@ -102,26 +102,45 @@ export default function IntroLoader({ progress, onAnimationComplete, locale = 'e
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [progress]);
 
-  // Exit sequence
+  // Exit sequence: simple lift-only approach for both desktop and mobile.
   useEffect(() => {
-    if (displayProgress === 100 && !isExiting) {
-      // Small delay at 100% to read "Launch Sequence Ready"
-      const timeout = setTimeout(() => {
-        setIsExiting(true);
-      }, 800);
-      return () => clearTimeout(timeout);
-    }
-  }, [displayProgress, isExiting]);
+    if (displayProgress !== 100 || isExiting) return;
+
+    const timeouts: number[] = [];
+    const startExit = () => {
+      setIsExiting(true);
+      setExitClass('lift');
+
+      // durations (ms)
+      const liftDuration = 1600; // CSS transition duration for lift
+      const blackHold = 300; // full-black hold
+      const finalFade = 900; // final fade duration
+
+      const total = liftDuration + blackHold + finalFade;
+      const finish = window.setTimeout(() => {
+        onAnimationComplete();
+      }, total);
+      timeouts.push(finish);
+    };
+
+    timeouts.push(window.setTimeout(startExit, 800));
+
+    return () => timeouts.forEach((t) => clearTimeout(t));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [displayProgress, onAnimationComplete]);
 
   // Notify parent to unmount
   useEffect(() => {
     if (isExiting) {
+      const duration = 350; // fade duration
       const timeout = setTimeout(() => {
         onAnimationComplete();
-      }, 1000); // Matches transition duration
+      }, duration);
       return () => clearTimeout(timeout);
     }
   }, [isExiting, onAnimationComplete]);
+
+  // particle burst removed — using a unified fade exit for all devices
 
   // Draw a very light, single-frame starfield on the canvas for atmosphere.
   useEffect(() => {
@@ -168,38 +187,24 @@ export default function IntroLoader({ progress, onAnimationComplete, locale = 'e
     // no animation frame loop — single draw for minimal CPU
   }, []);
 
-  // Respect prefers-reduced-motion and enable sweep only on desktop
+  // Enable sweep on desktop-sized viewports (reduced-motion gating removed for testing)
   useEffect(() => {
-    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
-    const update = () => {
-      const reduced = !!mq.matches;
-      setPrefersReducedMotion(reduced);
-      setAnimateSweep(!reduced && window.innerWidth >= 768);
-    };
-
+    const update = () => setAnimateSweep(window.innerWidth >= 768);
     update();
-    if (mq.addEventListener) mq.addEventListener('change', update);
-    else if ((mq as any).addListener) (mq as any).addListener(update);
-
-    const onResize = () => setAnimateSweep(!mq.matches && window.innerWidth >= 768);
-    window.addEventListener('resize', onResize);
-
-    return () => {
-      if (mq.removeEventListener) mq.removeEventListener('change', update);
-      else if ((mq as any).removeListener) (mq as any).removeListener(update);
-      window.removeEventListener('resize', onResize);
-    };
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
   }, []);
+
+  // exit variant removed — unified fade exit handled via `exitClass`
 
   return (
     <div
-      className={`fixed inset-0 z-[999] flex flex-col items-center justify-center bg-black text-white font-mono overflow-hidden transition-transform duration-[1000ms] ease-[cubic-bezier(0.76,0,0.24,1)] ${
-        isExiting ? "-translate-y-full" : "translate-y-0"
-      }`}
+      className={`loader-root fixed inset-0 z-[999] flex flex-col items-center justify-center bg-black text-white font-mono overflow-hidden ${exitClass}`}
     >
 
       {/* Background canvas (single-frame starfield) */}
       <canvas ref={canvasRef} className="absolute inset-0 w-full h-full z-0 pointer-events-none" />
+      {/* Particle burst removed — keep visuals simple, unified fade exit */}
 
       {/* Radar-style overlay: concentric rings + radial lines + optional sweep */}
       <div aria-hidden className="absolute inset-0 z-5 pointer-events-none">
@@ -231,6 +236,14 @@ export default function IntroLoader({ progress, onAnimationComplete, locale = 'e
           /* slower, smoother rotation for a more subtle sweep */
           @keyframes radar-rotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
           .radar-animate { animation: radar-rotate 10s linear infinite; }
+          /* Loader exit: lift-only (applied by JS) */
+          .loader-root { will-change: transform, opacity; }
+
+          /* Lift: translate up and slightly scale; CSS transition duration must match JS timing */
+          .lift { transition: transform 1600ms cubic-bezier(0.2,0,0,1), opacity 1600ms ease; transform: translateY(-220vh) scale(0.995); opacity: 0.98; }
+
+          /* Black hold + final fade handled by JS timing; apply simple fade class if needed */
+          .final-fade { transition: opacity 900ms ease; opacity: 0; }
         `}</style>
 
         <div className="radar-base">
