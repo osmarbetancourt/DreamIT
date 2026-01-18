@@ -6,18 +6,56 @@ import useDeviceStore from "../../logic/useDeviceStore";
 
 type Project = { id: string; title: string; tagline?: string; hexColor?: string };
 
-export default function SceneBootstrap({ projects = [] }: { projects?: Project[] }) {
+export default function SceneBootstrap({ projects = [], serverIsMobile }: { projects?: Project[]; serverIsMobile?: boolean }) {
   const [mountRequested, setMountRequested] = useState(false);
   const [progress, setProgress] = useState(0);
   const [loadingFinished, setLoadingFinished] = useState(false);
   
-  const { isCanvasAllowed, isMobile, detect } = useDeviceStore();
+  const { isCanvasAllowed, isMobile, detected, detect } = useDeviceStore();
 
-  // 1. Run detection immediately
+  // 1. Run detection immediately (do NOT mount until detection completes)
+  // If the server provided a `serverIsMobile` hint, seed the client store
+  // with that result to avoid a visual flash when the client re-evaluates.
   useEffect(() => {
+    if (typeof serverIsMobile !== 'undefined') {
+      // Seed the Zustand store directly so other consumers see `detected`.
+      // Conservative defaults: when server says mobile, disable canvas.
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (useDeviceStore as any).setState({ isMobile: !!serverIsMobile, isCanvasAllowed: !serverIsMobile, detected: true });
+      } catch (e) {
+        // fall back to client detection if seeding fails
+        detect();
+      }
+      return;
+    }
+
     detect();
-    setMountRequested(true);
-  }, [detect]);
+  }, [detect, serverIsMobile]);
+
+  // 2. When detection finishes, decide whether to mount the heavy Scene
+  useEffect(() => {
+    if (!detected) return;
+
+    if (!isCanvasAllowed) {
+      // Don't mount heavy scene on low-capability devices
+      setMountRequested(false);
+      return;
+    }
+
+    // Schedule mount on idle to avoid blocking first paint
+    let idleId: any = null;
+    if ((window as any).requestIdleCallback) {
+      idleId = (window as any).requestIdleCallback(() => setMountRequested(true));
+    } else {
+      idleId = window.setTimeout(() => setMountRequested(true), 300);
+    }
+
+    return () => {
+      if ((window as any).cancelIdleCallback && idleId) (window as any).cancelIdleCallback(idleId);
+      if (idleId) clearTimeout(idleId);
+    };
+  }, [detected, isCanvasAllowed]);
 
   // 2. CRITICAL FIX: Simulation logic
   // If we are on mobile, or if the scene loads instantly (cached), progress might get stuck.

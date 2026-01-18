@@ -85,8 +85,8 @@ Keep this file updated as tasks complete or change priority.
 
 These tasks implement the fast-first-paint + progressive hydrate pattern used by high-end interactive sites. Implement them early so the site feels instant while allowing a deep cinematic experience to load lazily.
 
-- Hero immediate view: render a meaningful DOM-first hero (text, subtle SVG/Lottie) that paints instantly. [ ]
-- Micro-loader scene: a small branded loading animation or micro-scene (Lottie/CSS/Canvas) that shows progress while heavy assets load. [ ]
+- Hero immediate view: render a meaningful DOM-first hero (text, subtle SVG/Lottie) that paints instantly. [x]
+- Micro-loader scene: a small branded loading animation or micro-scene (Lottie/CSS/Canvas) that shows progress while heavy assets load. [x]
 - SceneBootstrap (client): client component that renders the immediate hero, evaluates device/connection heuristics, and mounts `SceneLoader` (dynamic, `ssr:false`) on idle/interaction/timeout. [ ]
 - Device heuristics store (Zustand): centralize `isCanvasAllowed`, `saveData`, `effectiveType`, `deviceMemory`, `prefersReducedMotion` flags. [ ]
 - Prefetch strategy: use `requestIdleCallback` to `import(/* webpackPrefetch: true */ './Scene')` and preload large assets on idle. [ ]

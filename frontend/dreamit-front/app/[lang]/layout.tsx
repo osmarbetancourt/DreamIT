@@ -15,6 +15,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "DreamIT",
   description: "DreamIT Agency",
+  viewport: 'width=device-width,initial-scale=1,viewport-fit=cover',
 };
 
 export default async function RootLayout({
@@ -28,7 +29,7 @@ export default async function RootLayout({
 
   return (
     <html lang={lang} className="h-full w-full">
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased h-full w-full bg-zinc-950 overflow-hidden`}>
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased h-full w-full bg-zinc-950`}>
         {children}
       </body>
     </html>
