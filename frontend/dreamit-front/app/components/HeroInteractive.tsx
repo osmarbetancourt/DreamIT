@@ -87,6 +87,7 @@ export default function HeroInteractive({ title, subtitle }: HeroProps) {
 
       // draw stars
       for (let s of stars) {
+        if (!s) continue; // defensive: skip null/undefined entries
         // twinkle
         s.alpha += (s.baseAlpha - s.alpha) * 0.02;
         s.x += s.vx;
