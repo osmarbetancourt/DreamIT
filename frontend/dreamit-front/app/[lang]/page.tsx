@@ -41,10 +41,10 @@ export default async function Home({ params }: PageProps) {
 
   return (
     // FULL SCREEN CONTAINER
-    <main className="relative w-full h-screen overflow-hidden bg-zinc-950">
+    <main className="relative w-full h-screen overflow-hidden bg-black">
       
       {/* 1. The 3D Scene Manager (Background) */}
-      <SceneBootstrap projects={mockProjects} serverIsMobile={isMobileServer} />
+      <SceneBootstrap projects={mockProjects} serverIsMobile={isMobileServer} locale={lang} />
 
       {/* 2. The Text Overlay (Foreground) */}
       <HeroOverlay 

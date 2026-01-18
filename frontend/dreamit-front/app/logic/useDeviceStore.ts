@@ -4,12 +4,16 @@ type DeviceState = {
   isCanvasAllowed: boolean; // True if device is strong enough for WebGL
   isMobile: boolean;        // True if screen width < 768px
   detected: boolean;        // True after detect() ran
+  saveData: boolean;        // navigator.connection.saveData
+  prefersReducedMotion: boolean; // prefers-reduced-motion
   detect: () => void;
 };
 
 export const useDeviceStore = create<DeviceState>((set) => ({
   isCanvasAllowed: true,
   isMobile: false,
+  saveData: false,
+  prefersReducedMotion: false,
   detected: false,
   detect: () => {
     if (typeof window === "undefined") return;
@@ -30,6 +34,10 @@ export const useDeviceStore = create<DeviceState>((set) => ({
     const conn = nav.connection || {};
     const effectiveType = conn.effectiveType || '';
     const saveData = conn.saveData === true;
+
+    // prefers-reduced-motion
+    const mq = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)');
+    const prefersReducedMotion = mq ? mq.matches : false;
 
     // Low memory heuristic (soft): <4GB considered lower-end
     const isLowMemory = deviceMemory ? deviceMemory < 4 : false;
@@ -52,6 +60,8 @@ export const useDeviceStore = create<DeviceState>((set) => ({
     set({
       isMobile,
       isCanvasAllowed: !disableCanvas,
+      saveData,
+      prefersReducedMotion,
       detected: true,
     });
   },

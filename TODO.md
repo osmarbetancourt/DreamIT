@@ -87,9 +87,9 @@ These tasks implement the fast-first-paint + progressive hydrate pattern used by
 
 - Hero immediate view: render a meaningful DOM-first hero (text, subtle SVG/Lottie) that paints instantly. [x]
 - Micro-loader scene: a small branded loading animation or micro-scene (Lottie/CSS/Canvas) that shows progress while heavy assets load. [x]
-- SceneBootstrap (client): client component that renders the immediate hero, evaluates device/connection heuristics, and mounts `SceneLoader` (dynamic, `ssr:false`) on idle/interaction/timeout. [ ]
+- SceneBootstrap (client): client component that renders the immediate hero, evaluates device/connection heuristics, and mounts `SceneLoader` (dynamic, `ssr:false`) on idle/interaction/timeout. [x]
 - Device heuristics store (Zustand): centralize `isCanvasAllowed`, `saveData`, `effectiveType`, `deviceMemory`, `prefersReducedMotion` flags. [ ]
-- Prefetch strategy: use `requestIdleCallback` to `import(/* webpackPrefetch: true */ './Scene')` and preload large assets on idle. [ ]
-- Mobile branch UX: provide a distinct, intentionally lightweight mobile experience (CSS/Lottie/Canvas) when heuristics indicate low resources. [ ]
-- Preserve localization: ensure hero and monolith labels receive localized text from `app/[lang]/page.tsx`. [ ]
+- Prefetch strategy: use `requestIdleCallback` to `import(/* webpackPrefetch: true */ './Scene')` and preload large assets on idle. [x]
+- Mobile branch UX: provide a distinct, intentionally lightweight mobile experience (CSS/Lottie/Canvas) when heuristics indicate low resources. [x]
+- Preserve localization: ensure hero and monolith labels receive localized text from `app/[lang]/page.tsx`. [x]
 

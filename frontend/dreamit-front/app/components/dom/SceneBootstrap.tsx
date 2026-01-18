@@ -6,7 +6,7 @@ import useDeviceStore from "../../logic/useDeviceStore";
 
 type Project = { id: string; title: string; tagline?: string; hexColor?: string };
 
-export default function SceneBootstrap({ projects = [], serverIsMobile }: { projects?: Project[]; serverIsMobile?: boolean }) {
+export default function SceneBootstrap({ projects = [], serverIsMobile, locale = 'en' }: { projects?: Project[]; serverIsMobile?: boolean; locale?: 'es' | 'en' }) {
   const [mountRequested, setMountRequested] = useState(false);
   const [progress, setProgress] = useState(0);
   const [loadingFinished, setLoadingFinished] = useState(false);
@@ -114,15 +114,16 @@ export default function SceneBootstrap({ projects = [], serverIsMobile }: { proj
       {/* MOBILE STATIC BACKGROUND (Fallback) */}
       {/* If loading finished, but no canvas, show this static bg */}
       {loadingFinished && (!isCanvasAllowed) && (
-        <div className="fixed inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-zinc-900 to-black z-0" />
+        <div className="fixed inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-black to-black z-0" />
       )}
 
       {/* FULL SCREEN LOADER: Stays on top until loadingFinished is true */}
       {!loadingFinished && (
         <IntroLoader 
-          progress={progress} 
-          onAnimationComplete={handleAnimationComplete} 
-        />
+            progress={progress} 
+            onAnimationComplete={handleAnimationComplete} 
+            locale={locale}
+          />
       )}
     </>
   );

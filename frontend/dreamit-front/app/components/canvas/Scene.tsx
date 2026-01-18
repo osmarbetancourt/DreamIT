@@ -15,7 +15,7 @@ export default function Scene({
   
   return (
     <div
-      className={`fixed inset-0 z-0 bg-zinc-950 transition-opacity duration-[1500ms] ease-out ${
+      className={`fixed inset-0 z-0 bg-black transition-opacity duration-[1500ms] ease-out ${
         visible ? 'opacity-100' : 'opacity-0'
       }`}
     >

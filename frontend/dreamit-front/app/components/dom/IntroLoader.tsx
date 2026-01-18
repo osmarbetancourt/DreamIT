@@ -1,12 +1,25 @@
 "use client";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 
 interface IntroLoaderProps {
   progress: number; // 0 to 100
   onAnimationComplete: () => void;
+  locale?: 'es' | 'en';
+  reducedMotion?: boolean;
 }
 
-const LOG_MESSAGES = [
+const LOG_MESSAGES_ES = [
+  "Inicializando DreamIT...",
+  "Calibrando motor físico...",
+  "Cargando shaders de atmósfera...",
+  "Estableciendo enlace orbital...",
+  "Compilando assets WebGL...",
+  "Optimizando para móvil...",
+  "Renderizando luz estelar...",
+  "Secuencia de lanzamiento lista."
+];
+
+const LOG_MESSAGES_EN = [
   "Initializing DreamIT Core...",
   "Calibrating Physics Engine...",
   "Loading Atmosphere Shaders...",
@@ -17,14 +30,17 @@ const LOG_MESSAGES = [
   "Launch Sequence Ready."
 ];
 
-export default function IntroLoader({ progress, onAnimationComplete }: IntroLoaderProps) {
+export default function IntroLoader({ progress, onAnimationComplete, locale = 'en' }: IntroLoaderProps) {
   const [displayProgress, setDisplayProgress] = useState(1);
   const [isExiting, setIsExiting] = useState(false);
   const [logIndex, setLogIndex] = useState(0);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+  const [animateSweep, setAnimateSweep] = useState(false);
 
   // Sync logs with progress
   useEffect(() => {
-    const totalLogs = LOG_MESSAGES.length;
+    const totalLogs = LOG_MESSAGES_ES.length;
     const index = Math.min(
       totalLogs - 1,
       Math.floor((displayProgress / 100) * totalLogs)
@@ -107,21 +123,123 @@ export default function IntroLoader({ progress, onAnimationComplete }: IntroLoad
     }
   }, [isExiting, onAnimationComplete]);
 
+  // Draw a very light, single-frame starfield on the canvas for atmosphere.
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const DPR = Math.min(window.devicePixelRatio || 1, 1.5);
+    const w = canvas.clientWidth || window.innerWidth;
+    const h = canvas.clientHeight || window.innerHeight;
+    canvas.width = Math.max(1, Math.floor(w * DPR));
+    canvas.height = Math.max(1, Math.floor(h * DPR));
+    ctx.scale(DPR, DPR);
+
+    // Choose star count lightly based on viewport width
+    const isMobile = window.innerWidth < 768;
+    const starCount = isMobile ? 28 : 72;
+
+    // Fill transparent background (kept black by page body)
+    ctx.clearRect(0, 0, w, h);
+
+    for (let i = 0; i < starCount; i++) {
+      const x = Math.random() * w;
+      const y = Math.random() * h;
+      const radius = Math.random() * (isMobile ? 0.9 : 1.4);
+      const alpha = 0.02 + Math.random() * 0.12; // very faint
+
+      ctx.beginPath();
+      ctx.fillStyle = `rgba(255,255,255,${alpha.toFixed(3)})`;
+      ctx.arc(x, y, radius, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // draw a tiny, very faint clustered glow near center to give depth
+    ctx.beginPath();
+    const grad = ctx.createRadialGradient(w * 0.55, h * 0.28, 0, w * 0.55, h * 0.28, Math.min(w, h) * 0.35);
+    grad.addColorStop(0, 'rgba(255,255,255,0.02)');
+    grad.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, w, h);
+
+    // no animation frame loop — single draw for minimal CPU
+  }, []);
+
+  // Respect prefers-reduced-motion and enable sweep only on desktop
+  useEffect(() => {
+    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const update = () => {
+      const reduced = !!mq.matches;
+      setPrefersReducedMotion(reduced);
+      setAnimateSweep(!reduced && window.innerWidth >= 768);
+    };
+
+    update();
+    if (mq.addEventListener) mq.addEventListener('change', update);
+    else if ((mq as any).addListener) (mq as any).addListener(update);
+
+    const onResize = () => setAnimateSweep(!mq.matches && window.innerWidth >= 768);
+    window.addEventListener('resize', onResize);
+
+    return () => {
+      if (mq.removeEventListener) mq.removeEventListener('change', update);
+      else if ((mq as any).removeListener) (mq as any).removeListener(update);
+      window.removeEventListener('resize', onResize);
+    };
+  }, []);
+
   return (
     <div
-      className={`fixed inset-0 z-[999] flex flex-col items-center justify-center bg-zinc-950 text-white font-mono overflow-hidden transition-transform duration-[1000ms] ease-[cubic-bezier(0.76,0,0.24,1)] ${
+      className={`fixed inset-0 z-[999] flex flex-col items-center justify-center bg-black text-white font-mono overflow-hidden transition-transform duration-[1000ms] ease-[cubic-bezier(0.76,0,0.24,1)] ${
         isExiting ? "-translate-y-full" : "translate-y-0"
       }`}
     >
-      {/* Background Grid Pattern for "Tech" feel */}
-      <div 
-        className="absolute inset-0 opacity-10 pointer-events-none"
-        style={{ 
-          backgroundImage: `linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px), 
-          linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px)`,
-          backgroundSize: '40px 40px' 
-        }} 
-      />
+
+      {/* Background canvas (single-frame starfield) */}
+      <canvas ref={canvasRef} className="absolute inset-0 w-full h-full z-0 pointer-events-none" />
+
+      {/* Radar-style overlay: concentric rings + radial lines + optional sweep */}
+      <div aria-hidden className="absolute inset-0 z-5 pointer-events-none">
+        <style>{`
+          .radar-base { position: absolute; inset: 0; pointer-events: none; display: flex; align-items: center; justify-content: center; }
+
+          /* Circular container to clip the sweep and avoid square artifacts */
+          .radar-circle { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(90vmin, 1200px); height: min(90vmin, 1200px); border-radius: 50%; overflow: hidden; pointer-events: none; }
+
+          .radar-grid {
+            position: absolute; inset: 0; width: 100%; height: 100%;
+            /* Concentric rings + radial lines, very subtle */
+            background-image:
+              repeating-radial-gradient(circle at center, rgba(255,255,255,0.02) 0px, rgba(255,255,255,0.02) 1px, transparent 1px, transparent 48px),
+              repeating-conic-gradient(from 0deg, rgba(255,255,255,0.02) 0deg 1deg, transparent 1deg 30deg);
+            mix-blend-mode: overlay; opacity: 0.7; transform-origin: center;
+            filter: blur(0.2px);
+          }
+
+          .radar-sweep {
+            position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 50%;
+            /* Stronger green near the center, fading outward for depth */
+            background: radial-gradient(circle at 55% 30%, rgba(16,255,180,0.18) 0%, rgba(16,255,170,0.10) 6%, rgba(16,255,150,0.06) 12%, transparent 30%),
+                        conic-gradient(rgba(16,255,180,0.22) 0deg 6deg, rgba(16,255,160,0.12) 6deg 18deg, rgba(16,255,150,0.06) 18deg 40deg, transparent 40deg 360deg);
+            mix-blend-mode: screen; opacity: 0.98; transform-origin: 50% 50%;
+            will-change: transform;
+          }
+
+          /* slower, smoother rotation for a more subtle sweep */
+          @keyframes radar-rotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+          .radar-animate { animation: radar-rotate 10s linear infinite; }
+        `}</style>
+
+        <div className="radar-base">
+          <div className="radar-circle" aria-hidden>
+            <div className="radar-grid" />
+            <div className={`radar-sweep ${animateSweep ? 'radar-animate' : ''}`} style={{ opacity: animateSweep ? 0.95 : 0.0 }} />
+          </div>
+        </div>
+      </div>
 
       {/* Main Center Content */}
       <div className="relative z-10 flex flex-col items-center w-full max-w-md px-6">
@@ -153,7 +271,7 @@ export default function IntroLoader({ progress, onAnimationComplete }: IntroLoad
         {/* System Logs */}
         <div className="mt-4 flex flex-col items-center h-8">
            <span className="text-xs md:text-sm text-cyan-400/80 uppercase tracking-widest animate-pulse">
-             {LOG_MESSAGES[logIndex]}
+             {locale === 'en' ? LOG_MESSAGES_EN[logIndex] : LOG_MESSAGES_ES[logIndex]}
            </span>
         </div>
 
