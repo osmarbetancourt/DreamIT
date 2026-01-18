@@ -9,7 +9,7 @@ interface HeroProps {
 }
 
 // 2. Accept props in the component function
-export default function HeroInteractive({ title, subtitle }: HeroProps): JSX.Element {
+export default function HeroInteractive({ title, subtitle }: HeroProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const rafRef = useRef<number | null>(null);
 
@@ -31,27 +31,29 @@ export default function HeroInteractive({ title, subtitle }: HeroProps): JSX.Ele
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const ctx = canvas.getContext("2d");
+    const canvasEl = canvas;
+    const ctx = canvasEl.getContext("2d");
     if (!ctx) return;
+    const ctx2d = ctx;
 
     let dpr = Math.max(1, window.devicePixelRatio || 1);
     const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
     function resize() {
       dpr = Math.max(1, window.devicePixelRatio || 1);
-      const w = canvas.clientWidth || window.innerWidth;
-      const h = canvas.clientHeight || Math.max(window.innerHeight * 0.5, 300);
-      canvas.width = Math.floor(w * dpr);
-      canvas.height = Math.floor(h * dpr);
-      canvas.style.width = `${w}px`;
-      canvas.style.height = `${h}px`;
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      const w = canvasEl.clientWidth || window.innerWidth;
+      const h = canvasEl.clientHeight || Math.max(window.innerHeight * 0.5, 300);
+      canvasEl.width = Math.floor(w * dpr);
+      canvasEl.height = Math.floor(h * dpr);
+      canvasEl.style.width = `${w}px`;
+      canvasEl.style.height = `${h}px`;
+      ctx2d.setTransform(dpr, 0, 0, dpr, 0, 0);
     }
 
     let stars: Star[] = [];
 
     function initStars() {
-      const area = (canvas.width / dpr) * (canvas.height / dpr);
+      const area = (canvasEl.width / dpr) * (canvasEl.height / dpr);
       const baseCount = Math.floor(Math.min(200, Math.max(40, area / 10000)));
       const nav = navigator as Navigator & { connection?: NetworkInformationLike };
       const cap = nav.connection && nav.connection.saveData ? Math.min(80, baseCount) : baseCount;
@@ -59,8 +61,8 @@ export default function HeroInteractive({ title, subtitle }: HeroProps): JSX.Ele
       stars = [];
       for (let i = 0; i < count; i++) {
         stars.push({
-          x: Math.random() * (canvas.width / dpr),
-          y: Math.random() * (canvas.height / dpr),
+          x: Math.random() * (canvasEl.width / dpr),
+          y: Math.random() * (canvasEl.height / dpr),
           vx: (Math.random() - 0.5) * 0.1,
           vy: (Math.random() - 0.5) * 0.1,
           size: Math.random() * 1.8 + 0.3,
@@ -71,17 +73,17 @@ export default function HeroInteractive({ title, subtitle }: HeroProps): JSX.Ele
     }
 
     function draw(timestamp: number) {
-      if (!ctx) return;
-      const w = canvas.width / dpr;
-      const h = canvas.height / dpr;
-      ctx.clearRect(0, 0, w, h);
+      if (!ctx2d) return;
+      const w = canvasEl.width / dpr;
+      const h = canvasEl.height / dpr;
+      ctx2d.clearRect(0, 0, w, h);
 
       // soft gradient background
-      const g = ctx.createLinearGradient(0, 0, 0, h);
+      const g = ctx2d.createLinearGradient(0, 0, 0, h);
       g.addColorStop(0, "#071023");
       g.addColorStop(1, "#04101a");
-      ctx.fillStyle = g;
-      ctx.fillRect(0, 0, w, h);
+      ctx2d.fillStyle = g;
+      ctx2d.fillRect(0, 0, w, h);
 
       // draw stars
       for (let s of stars) {
@@ -94,10 +96,10 @@ export default function HeroInteractive({ title, subtitle }: HeroProps): JSX.Ele
         if (s.y < -2) s.y = h + 2;
         if (s.y > h + 2) s.y = -2;
 
-        ctx.beginPath();
-        ctx.fillStyle = `rgba(255,255,255,${Math.max(0, Math.min(1, s.alpha))})`;
-        ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
-        ctx.fill();
+        ctx2d.beginPath();
+        ctx2d.fillStyle = `rgba(255,255,255,${Math.max(0, Math.min(1, s.alpha))})`;
+        ctx2d.arc(s.x, s.y, s.size, 0, Math.PI * 2);
+        ctx2d.fill();
       }
 
       rafRef.current = requestAnimationFrame(draw);
@@ -115,7 +117,7 @@ export default function HeroInteractive({ title, subtitle }: HeroProps): JSX.Ele
     }
 
     function onPointerDown(e: PointerEvent) {
-      const rect = canvas.getBoundingClientRect();
+      const rect = canvasEl.getBoundingClientRect();
       const x = (e.clientX - rect.left);
       const y = (e.clientY - rect.top);
       scatter(x, y);
@@ -126,12 +128,13 @@ export default function HeroInteractive({ title, subtitle }: HeroProps): JSX.Ele
     rafRef.current = requestAnimationFrame(draw);
 
     window.addEventListener("resize", resize);
-    canvas.addEventListener("pointerdown", onPointerDown);
+    canvasEl.addEventListener("pointerdown", onPointerDown);
 
     return () => {
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
       window.removeEventListener("resize", resize);
-      canvas.removeEventListener("pointerdown", onPointerDown);
+      canvasEl.removeEventListener("pointerdown", onPointerDown);
     };
   }, []);
 
