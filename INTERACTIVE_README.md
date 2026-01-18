@@ -1,67 +1,73 @@
-# DreamIT Interactive Feature — Plan & Assets
+# DREAMIT: IMMERSIVE EXPERIENCE BLUEPRINT
+**Target Style:** Active Theory / Awwwards SOTD
+**Theme:** Ascent (Launchpad -> Clouds -> Orbit)
 
-This document outlines the interactive feature concepts, required assets, routes, components, and implementation notes for the DreamIT website. It's a reference for designers and developers to prototype and iterate on a mobile-first, performance-conscious interactive experience (Physics Playground with space motifs).
+## 1. Tech Stack (The "Muscles")
+- **Framework:** Next.js 16 (App Router)
+- **3D Engine:** Three.js / React Three Fiber (R3F)
+- **Helpers:** @react-three/drei (for Float, Stars, Sparkles, Html overlays)
+- **Animation:** GSAP (ScrollTrigger)
+- **Smooth Scroll:** Lenis (CRITICAL for the "expensive" feel)
+- **Styling:** Tailwind CSS (for the UI layer on top of the canvas)
 
-## Main idea
-- Create a fast, elegant, mobile-first interactive hero that expresses the DreamIT brand (dreams, clouds, moon, rockets, space, the letter D).
-- Desktop will receive an enhanced experience (particle physics, richer visuals). Mobile gets a simplified, touch-first Canvas/SVG experience that still feels magical and performant.
-- Interactions are short, delightful, and lead to a clear CTA (contact / portfolio). Microcards reveal case-study highlights.
+## 2. Asset Strategy (The "Look")
+### The "Glass" Aesthetic
+Instead of realistic metal, we use "Frosted Glass" (MeshTransmissionMaterial).
+- It looks futuristic and premium.
+- It refracts the background (stars/clouds), making the scene feel cohesive.
+- **Color Palette:** Deep Zinc (zinc-950), Neon Purple accents, Cyan rim lights.
 
-## Goals
-- Convey professionalism and creativity while keeping load times minimal.
-- Work on low-bandwidth mobile networks (Venezuela-heavy audience). Provide a Lite mode by default on poor connections.
-- Progressive enhancement: semantic HTML/SVG baseline, then Canvas/GL enhancements when available.
+## 3. The Experience Flow (Route: `/`)
 
-## Routes (Next.js app router)
-- `/` — Home page with interactive hero (prototype entry: `frontend/dreamit-front/app/page.tsx`).
-- `/case/[slug]` — Case study detail micro-pages (link targets from microcards).
-- `/about` — Company page (static content, team, values).
-- `/contact` — Contact / CTA page.
-- `/api/interaction` (optional) — Minimal Next.js API route to receive opt-in interaction metrics or leaderboard data.
+### A. The Loader (Pre-Launch)
+* **Visual:** A dark screen with a thin percentage line.
+* **Action:** As assets load, the line fills.
+* **Transition:** When 100%, the screen "shutters" open vertically (like a rocket bay door opening), revealing the Hero.
 
-## Core components
-- `HeroInteractive` — Canvas/SVG container for particles, interaction logic, and microcards.
-- `Microcard` — Small slide-up card with title, one-line summary, and image; used for case highlights.
-- `LiteToggle` — UI control for switching to Lite mode (persisted in `localStorage`).
-- `LogoFormation` — Target shape (DreamIT wordmark or `D`) used for particle attraction.
-- `RocketLottie` — small Lottie animation (lazy-loaded) used as celebratory feedback.
+### B. Section 1: The Launchpad (Hero)
+* **3D Scene (Desktop):**
+    * Camera looking UP at a stylized, glass abstract Rocket or the "DreamIT" Monogram.
+    * Low-lying volumetric fog (using Three.js FogExp2).
+    * Mouse movement tilts the camera slightly (parallax).
+* **Mobile Fallback:**
+    * Static high-quality render of the Glass Rocket.
+    * Gyroscope enabled: Tilting the phone moves the stars behind it.
 
-## Assets
-- Optimized SVGs: logo, cloud layers, moon, small stars.
-- Lottie JSON: rocket (1s, small file). Lazy-load only when needed.
-- Images: case-study thumbnails (WebP/AVIF) with responsive sizes.
+### C. Section 2: The Ascent (Services)
+* **Interaction:** As user scrolls down, the Camera moves UP.
+* **Visual:** We pass through layers of "InstancedMesh" Clouds.
+    * *Tech Note:* Don't use real volumetric clouds (too heavy). Use "Billboards" (2D images that always face the camera) with soft opacity.
+* **UI:** Service cards (Web, Mobile, AI) slide in from the sides with a "glassmorphism" blur effect.
 
-## Technology choices
-- Mobile-first: vanilla `requestAnimationFrame` + lightweight, custom particle system (50-200 particles mobile). Canvas preferred.
-- Animation helpers: GSAP only if necessary and loaded lazily; otherwise small utility easing functions.
-- Desktop enhancement: Three.js (lazy-load) for optional depth/3D effects; fallback to Canvas.
-- Physics: simple verlet/attraction implementation or tiny physics library if needed.
+### D. Section 3: Orbit (Portfolio/Work)
+* **Visual:** The clouds clear. We are in deep space.
+* **3D Scene:** Floating debris/asteroids. Each asteroid is a "Project."
+* **Interaction:**
+    * **Desktop:** Hovering a project slows down time (timeScale = 0.1). The project card expands.
+    * **Mobile:** A horizontal "snap" carousel. The background stars rotate based on scroll speed.
 
-## Performance & accessibility
-- Detect `save-data` and network speed; reduce particle count and turn off heavy effects on slow connections.
-- Respect `prefers-reduced-motion` and provide a static SVG logo fallback.
-- Keep initial JS for hero <100 KB (gzipped if possible) by code-splitting and lazy loading.
-- Use system fonts + one display variable font (preload minimal subset).
-- Large touch targets, ARIA labels for microcards and CTAs, keyboard navigation for desktop.
+### E. Section 4: Contact (The Moon)
+* **Visual:** A large, wireframe sphere (The Moon/Global reach) rotating slowly at the bottom.
+* **Interaction:** The contact form is physically "projected" onto the sphere (using R3F `<Html transform>`).
 
-## Interaction flow (hero)
-1. Load: static SVG wordmark + subtle CSS background while animations lazy-load.
-2. Auto-formation: low-count particles animate to form `D` or `DreamIT` then relax.
-3. User tap/click: particles scatter and form clusters; long-press anchors cluster.
-4. Cluster tap: show `Microcard` from bottom with case highlight and CTA.
-5. Completion: when user re-forms the logo, play `RocketLottie` (lazy-loaded) and show primary CTA.
+## 4. Optimization Guide (The "Fast for Cel" Rules)
+1.  **Texture Compression:** ALL textures must be `.ktx2` or `.webp`. No PNGs/JPGs in 3D.
+2.  **Dramatically Lower Polycount:** The rocket/logo should be <5,000 polygons. Use "Normal Maps" to fake the details.
+3.  **Post-Processing:**
+    * Desktop: Bloom + Vignette + Chromatic Aberration (on scroll).
+    * Mobile: DISABLE Post-processing entirely. It kills frame rates on Android.
+4.  **Draco Compression:** Use `gltf-pipeline` to compress 3D models. A 10MB model becomes 500KB.
 
-## Data & analytics (optional)
-- Minimal, opt-in sampling of interaction events (`/api/interaction`) to measure engagement without heavy third-party scripts.
-
-## Developer notes
-- Prototype inside `frontend/dreamit-front/app/page.tsx` to prove mobile-first behavior.
-- Create a split bundle for the interactive hero (dynamic import). Lazy-load Three.js and Lottie.
-- Add feature flags and `Lite` toggle early to test performance trade-offs.
-
-## Next steps
-1. Provide logo SVG and brand colors.  
-2. Provide 2–3 short case-study blurbs (title, 1-line result, image).  
-3. I'll produce low-fidelity wireframes and a small prototype plan for the hero.  
-
----
+## 5. Directory Structure for Agent
+app/
+components/
+  canvas/
+    Scene.tsx          <-- Main R3F Canvas
+    Rocket.tsx         <-- The Hero Model
+    CloudLayers.tsx    <-- The Scroll Effect
+    Stars.tsx          <-- Background InstancedMesh
+  dom/
+    Overlay.tsx        <-- HTML Text that floats over 3D
+    SmoothScroll.tsx   <-- Lenis Wrapper
+hooks/
+  useScroll.ts         <-- Connects DOM scroll to 3D Camera
