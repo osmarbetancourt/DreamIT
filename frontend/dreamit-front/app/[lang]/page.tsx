@@ -1,29 +1,35 @@
-// Notice: NO "use client" at the top. This is now a Server Component.
 import React from 'react';
-import HeroInteractive from '../components/HeroInteractive';
 import { getDictionary } from '../dictionaries/get-dictionary';
+import SceneBootstrap from '../components/dom/SceneBootstrap';
+import HeroOverlay from '../components/dom/HeroOverlay';
 
-// Define the interface for the Page props
 interface PageProps {
   params: Promise<{ lang: 'en' | 'es' }>;
 }
 
 export default async function Home({ params }: PageProps) {
-  // 1. Await the params to get the language (en or es)
   const { lang } = await params;
-
-  // 2. Fetch the dictionary for that language (runs on server)
   const dict = await getDictionary(lang);
 
+  const mockProjects = [
+    { id: '1', title: 'DragonLog', tagline: 'RPG System', hexColor: '#ff0000' },
+    { id: '2', title: 'FinTech Core', tagline: 'Secure Banking', hexColor: '#00ff88' },
+    { id: '3', title: 'Gym App', tagline: 'Fitness Tracker', hexColor: '#0000ff' },
+  ];
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-950 text-zinc-50">
-      <div className="w-full max-w-5xl rounded-3xl border border-zinc-800 bg-zinc-900/80 p-6 shadow-2xl backdrop-blur">
-        {/* 3. Pass the translated text to the interactive component */}
-        <HeroInteractive 
-          title={dict.hero.title}
-          subtitle={dict.hero.subtitle}
-        />
-      </div>
-    </div>
+    // FULL SCREEN CONTAINER
+    <main className="relative w-full h-screen overflow-hidden bg-zinc-950">
+      
+      {/* 1. The 3D Scene Manager (Background) */}
+      <SceneBootstrap projects={mockProjects} />
+
+      {/* 2. The Text Overlay (Foreground) */}
+      <HeroOverlay 
+        title={dict.hero.title} 
+        subtitle={dict.hero.subtitle} 
+      />
+      
+    </main>
   );
 }

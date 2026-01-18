@@ -1,28 +1,61 @@
 "use client";
-import React, { Suspense } from "react";
+import React, { Suspense, useEffect } from "react";
 import { Canvas } from "@react-three/fiber";
-import { Preload, AdaptiveDpr } from "@react-three/drei";
+import { Preload, AdaptiveDpr, useProgress } from "@react-three/drei";
 import * as THREE from "three";
 import World from "./World";
 import Effects from "./Effects";
 
-type Project = { id: string; title: string; tagline?: string; hexColor?: string };
-
-export default function Scene({ projects = [] }: { projects?: Project[] }) {
+export default function Scene({ 
+  projects = [], 
+  onProgress, 
+  onLoaded, 
+  visible = false 
+}: any) {
+  
   return (
-    <div className="fixed inset-0 z-0 bg-zinc-950">
+    <div
+      className={`fixed inset-0 z-0 bg-zinc-950 transition-opacity duration-[1500ms] ease-out ${
+        visible ? 'opacity-100' : 'opacity-0'
+      }`}
+    >
       <Canvas
-        gl={{ antialias: false, powerPreference: "high-performance", toneMapping: THREE.ACESFilmicToneMapping }}
+        gl={{ 
+          antialias: false, 
+          toneMapping: THREE.ACESFilmicToneMapping,
+          powerPreference: "high-performance",
+          stencil: false,
+          depth: true
+        }}
         dpr={[1, 1.5]}
         camera={{ position: [0, 0, 15], fov: 35 }}
       >
         <Suspense fallback={null}>
+          <LoaderReporter onProgress={onProgress} onLoaded={onLoaded} />
+          
           <World projects={projects} />
           <Effects />
+          
           <AdaptiveDpr pixelated />
           <Preload all />
         </Suspense>
       </Canvas>
     </div>
   );
+}
+
+function LoaderReporter({ onProgress, onLoaded }: any) {
+  const { active, progress, total } = useProgress();
+
+  useEffect(() => {
+    if (onProgress) onProgress(progress);
+  }, [progress, onProgress]);
+
+  useEffect(() => {
+    if (progress === 100 || (total === 0 && !active)) {
+      if (onLoaded) onLoaded();
+    }
+  }, [progress, total, active, onLoaded]);
+
+  return null;
 }

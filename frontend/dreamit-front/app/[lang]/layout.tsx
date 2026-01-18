@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import "../globals.css";
+import "../globals.css"; // Ensure this path is correct based on your folder structure
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -17,7 +17,6 @@ export const metadata: Metadata = {
   description: "DreamIT Agency",
 };
 
-// 1. Add params to the props
 export default async function RootLayout({
   children,
   params,
@@ -25,13 +24,11 @@ export default async function RootLayout({
   children: React.ReactNode;
   params: Promise<{ lang: string }>;
 }>) {
-  // 2. Await the params
   const { lang } = await params;
 
   return (
-    // 3. Use the dynamic language
-    <html lang={lang}>
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+    <html lang={lang} className="h-full w-full">
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased h-full w-full bg-zinc-950 overflow-hidden`}>
         {children}
       </body>
     </html>
