@@ -49,6 +49,22 @@ This file captures high-level milestones, prioritized tasks, and partial objecti
   - else => high-fidelity material + optional `.glb` lazy-load
 - Effects kill-switch: return `null` when `isCanvasAllowed` is false.
 
+## Astronaut Jump — Focused next steps
+We will implement the jump sequence first (keep warp for later). Make these items small, testable, and mergeable.
+
+- [ ] Storyboard & timing: finalize beats and durations (idle 0–2s, push 2–2.6s, scale/dolly 2.6–4.0s, settle 4.0–5.0s).
+- [ ] Asset audit: locate astronaut GLB(s) in `public/` or repo; ensure clips: `Idle`, `Push/Jump`, `Float`.
+- [ ] Create LODs and variants: distant low-poly, mid, and high (visor/helmet separate material if available).
+- [ ] Animation binding: use `useGLTF` + `useAnimations` to blend `Idle -> Push -> Float`; expose `playJump()` API.
+- [ ] Camera choreography: design camera timeline (dolly back, small FOV increase on push, easing curves). Add a `CameraRig` helper.
+- [ ] Micro VFX: small particle burst at push (instanced quads) + subtle rim flash on helmet/visor; desktop-only heavier FX.
+- [ ] Interaction mapping: support `click/tap` trigger and `scroll` scrub; pointer parallax while idle.
+- [ ] Reduced-motion & heuristics: respect `prefers-reduced-motion`, `saveData`, and device heuristics to skip/shorten animation.
+- [ ] Performance safety: clamp DPR, test with `AdaptiveDpr`, validate no material leaks (clone materials where needed).
+- [ ] Testing & PR: verify animation blends on desktop, mobile fallback present, document test steps and merge.
+
+Make each item its own small branch/PR. After the jump is stable we will expand into the full warp/tunnel sequence.
+
 ## Acceptance Criteria (concrete)
 - On mobile/2G/saveData, page renders quickly and shows `MobileFallback` or low-cost Scene without postprocessing.
 - On desktop with good connection, Glass materials and Effects load lazily and produce enhanced visuals.

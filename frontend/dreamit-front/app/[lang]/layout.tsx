@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "../globals.css"; // Ensure this path is correct based on your folder structure
+import ContactCTA from "../components/dom/ContactCTA";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -39,6 +40,8 @@ export default async function RootLayout({
         {/* <link rel="preload" as="fetch" href="/assets/models/hero-draco.glb" type="model/gltf-binary" /> */}
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased h-full w-full bg-black`}>
+        {/* Top-level Contact CTA present for all pages */}
+        <ContactCTA lang={lang} />
         {children}
       </body>
     </html>

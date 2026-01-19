@@ -39,11 +39,13 @@ export default function World({ projects = [] }: { projects: any[] }) {
       {/* Astronaut (Hero) aligned with hero text */}
       <group position={[0, -33, 0]}>
         <Astronaut
-          scale={9}
-          visorColor={0xffbf00}
-          visorMetalness={0.98}
-          visorRoughness={0.035}
-          visorEmissiveIntensity={0.09}
+          initialScale={9}
+          scale={2}
+          parentY={-33}
+          targetGlobalY={-6}
+          visorMetalness={1}
+          visorRoughness={0.1}
+          visorEmissiveIntensity={0.5}
           forceVisorStyle={'gold'}
           logMeshNames={true}
           // (debug props removed)
