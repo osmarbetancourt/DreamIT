@@ -7,6 +7,10 @@ import { useFrame } from "@react-three/fiber";
 import { RectAreaLightUniformsLib } from "three/examples/jsm/lights/RectAreaLightUniformsLib";
 import Astronaut from "./Astronaut";
 import Wormhole from "./Wormhole";
+import dynamic from 'next/dynamic';
+import useWormholeEffectsStore from '../../logic/useWormholeEffectsStore';
+
+const WormholeEffects = dynamic(() => import('./WormholeEffects'), { ssr: false });
 
 export default function World({ projects = [] }: { projects: any[] }) {
   // initialize RectAreaLight shader uniforms once
@@ -58,6 +62,22 @@ export default function World({ projects = [] }: { projects: any[] }) {
       });
     } catch (e) {}
   };
+
+    // When wormhole becomes locked (rotation stop) enable wormhole-only effects post-render
+    useEffect(() => {
+      if (wormholeState.locked) {
+        // enable composer and ramp intensity
+        // do not mutate stores during render — commit in effect
+        useWormholeEffectsStore.getState().setEnabled(true);
+        useWormholeEffectsStore.getState().setIntensity(1);
+      } else {
+        // gracefully disable
+        useWormholeEffectsStore.getState().setIntensity(0);
+        // small timeout to let intensity ramp fade
+        const t = setTimeout(() => useWormholeEffectsStore.getState().setEnabled(false), 450);
+        return () => clearTimeout(t);
+      }
+    }, [wormholeState.locked]);
 
   // Single, minimal log: announce when wormhole becomes visible
   useEffect(() => {
@@ -125,6 +145,9 @@ export default function World({ projects = [] }: { projects: any[] }) {
         speed={wormholeState.speed}
         lifetime={wormholeState.lifetime}
       />
+
+      {/* Wormhole-only postprocessing: mounted lazily and controlled via store */}
+      <WormholeEffects />
 
       {/** quick mount log removed to reduce console noise **/}
 

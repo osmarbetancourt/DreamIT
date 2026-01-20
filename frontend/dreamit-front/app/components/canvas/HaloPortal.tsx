@@ -9,6 +9,7 @@ type Props = {
   baseRadius?: number; // world units
   startTime?: number | null; // performance.now()
   fadeInMs?: number;
+  debug?: boolean;
 };
 
 export default function HaloPortal({ position = [0, 0, 0], visible = false, baseRadius = 1, startTime = null, fadeInMs = 300, debug = false }: Props) {
