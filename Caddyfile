@@ -11,5 +11,27 @@ dreamit.software  {
 		X-Frame-Options "DENY"
 	}
 
+	# Cache rules for static assets (hashed filenames)
+	@immutable {
+		path_regexp immutable \.(?:js|css|jpg|jpeg|png|webp|avif|gif|svg|ico|ttf|woff2|woff|eot|otf|glb|ktx2|bin|wasm)$
+	}
+	header @immutable Cache-Control "public, max-age=31536000, immutable"
+
+	# Shorter caching for JSON and other dynamic resources
+	@short {
+		path_regexp short \.(?:json|map)$
+	}
+	header @short Cache-Control "public, max-age=3600, stale-while-revalidate=86400"
+
+	# HTML / SSR responses: avoid aggressive browser caching. Match requests
+	# that do NOT target static file extensions and treat them as HTML pages.
+	@html {
+		not {
+			path_regexp static_ext \.(?:js|css|jpg|jpeg|png|webp|avif|gif|svg|ico|ttf|woff2|woff|eot|otf|glb|ktx2|bin|wasm|json|map)$
+		}
+	}
+	header @html Cache-Control "no-cache, must-revalidate"
+
+	# Proxy the frontend app
 	reverse_proxy frontend:3000
 }
