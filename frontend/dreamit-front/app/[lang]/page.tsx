@@ -3,6 +3,7 @@ import { getDictionary } from '../dictionaries/get-dictionary';
 import SceneBootstrap from '../components/dom/SceneBootstrap';
 import HeroOverlay from '../components/dom/HeroOverlay';
 import JumpScroller from '../components/dom/JumpScroller';
+import WarpOverlay from '../components/dom/WarpOverlay';
 import { headers } from 'next/headers';
 
 interface PageProps {
@@ -52,6 +53,8 @@ export default async function Home({ params }: PageProps) {
         title={dict.hero.title} 
         subtitle={dict.hero.subtitle} 
       />
+      {/* Full-screen mask used to hide route swap during cinematic */}
+      <WarpOverlay />
       {/* Desktop wheel-driven scroller for the jump prototype */}
       <JumpScroller />
       

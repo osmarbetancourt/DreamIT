@@ -16,7 +16,7 @@ type Props = {
   colorB?: string;
 };
 
-const AdvancedWormholeShader = {
+const ColorShiftWormholeShader = {
   uniforms: {
     uTime: { value: 0 },
     uSpeed: { value: 0 },
@@ -39,8 +39,7 @@ const AdvancedWormholeShader = {
       
       vec3 pos = position;
       
-      // Breathing effect (Expansion/Contraction)
-      // This makes the tunnel feel "alive" without bending the path
+      // Breathing effect
       float breathe = sin(uTime * 2.0 + pos.y * 0.5) * 0.1 * uPulse;
       pos.x += normal.x * breathe;
       pos.z += normal.z * breathe;
@@ -76,14 +75,20 @@ const AdvancedWormholeShader = {
       return mix(a, b, u.x) + (c - a)* u.y * (1.0 - u.x) + (d - b) * u.x * u.y;
     }
 
+    vec3 hueShift(vec3 color, float shift) {
+        vec3 k = vec3(0.57735);
+        float c = cos(shift);
+        return vec3(c) * color + (1.0 - c) * dot(k, color) * k + sin(shift) * cross(k, color);
+    }
+
     void main() {
-      // 1. RIM LIGHTING (The glow on the edges)
+      // 1. RIM LIGHTING
       vec3 viewDir = normalize(vViewPosition);
       vec3 normal = normalize(vNormal);
       float fresnel = pow(1.0 - abs(dot(viewDir, normal)), 3.0);
       fresnel = smoothstep(0.0, 1.0, fresnel);
 
-      // 2. LAYERED DISTORTION (The moving texture)
+      // 2. TEXTURE FLOW
       vec2 uv1 = vUv;
       uv1.y += uTime * uSpeed * 1.5;
       float noise1 = noise(uv1 * vec2(10.0, 50.0));
@@ -95,12 +100,21 @@ const AdvancedWormholeShader = {
 
       float pattern = noise1 * 0.6 + noise2 * 0.4;
       
-      // 3. COLOR MIXING
-      vec3 color = mix(uColorA, uColorB, fresnel * uRimGlow + pattern * 0.5);
+      // --- COLOR SPECTRUM TUNING ---
+      // 'uTime * 0.2' controls the Rainbow Speed.
+      // Change 0.2 to 0.5 for FASTER colors.
+      // Change 0.2 to 0.05 for SLOWER colors.
+      float colorSpeed = uTime * 0.2; 
+      
+      vec3 shiftedA = hueShift(uColorA, colorSpeed);
+      vec3 shiftedB = hueShift(uColorB, colorSpeed + 0.5); // +0.5 ensures B is different from A
+
+      vec3 color = mix(shiftedA, shiftedB, fresnel * uRimGlow + pattern * 0.5);
+      
       float highlight = smoothstep(0.7, 1.0, pattern);
       color += vec3(1.0) * highlight * 0.5;
 
-      // 4. EDGE FADE (Soft transparency at ends)
+      // 4. EDGE FADE
       float edgeFade = smoothstep(0.0, 0.2, vUv.y) * smoothstep(1.0, 0.8, vUv.y);
 
       gl_FragColor = vec4(color, edgeFade * uOpacity * (0.5 + fresnel * 0.5));
@@ -117,14 +131,13 @@ export default function Wormhole({
   lifetime = 20,
   rimGlow = 0.5,
   pulse = 0,
-  colorA = "#00ffff",
-  colorB = "#9900ff"
+  colorA = "#00ffff", // <--- BASE COLOR 1 (Cyan)
+  colorB = "#9900ff"  // <--- BASE COLOR 2 (Purple)
 }: Props) {
   const meshRef = useRef<THREE.Mesh>(null!);
   const materialRef = useRef<THREE.ShaderMaterial>(null!);
   const [expired, setExpired] = useState(false);
   
-  // Store initial position so we can drift relative to it
   const initialPos = useRef(new THREE.Vector3(...position));
 
   useEffect(() => {
@@ -139,7 +152,6 @@ export default function Wormhole({
     if (!materialRef.current || expired) return;
     const mat = materialRef.current;
     
-    // Shader Uniforms
     mat.uniforms.uTime.value += delta;
     mat.uniforms.uSpeed.value = THREE.MathUtils.lerp(mat.uniforms.uSpeed.value, speed, 0.1);
     mat.uniforms.uOpacity.value = THREE.MathUtils.lerp(mat.uniforms.uOpacity.value, opacity, 0.1);
@@ -149,16 +161,16 @@ export default function Wormhole({
     mat.uniforms.uColorB.value.set(colorB);
 
     if (meshRef.current) {
-      // 1. ROTATION: Spin the tunnel (Vortex effect)
-      meshRef.current.rotation.y += delta * 0.1 * (1 + speed);
+      // --- ROTATION SPEED TUNING ---
+      // Base Speed: 0.2 (Slow spin)
+      // Boost: speed * 0.8 (Fast spin when scrolling)
+      meshRef.current.rotation.y += delta * (0.2 + speed * 0.8);
 
-      // 2. DRIFT: Move the entire "Hole" slightly to make it feel alive
-      // Uses a gentle Sine wave on X and Y
+      // Drift Logic
       const t = state.clock.elapsedTime;
-      const driftX = Math.sin(t * 1.5) * 1.5; // Drift 0.5 units Left/Right
-      const driftY = Math.cos(t * 1.3) * 1.3; // Drift 0.3 units Up/Down
+      const driftX = Math.sin(t * 0.7) * 0.7; 
+      const driftY = Math.cos(t * 0.7) * 0.7; 
       
-      // Apply drift + original position
       meshRef.current.position.x = initialPos.current.x + driftX;
       meshRef.current.position.y = initialPos.current.y + driftY;
     }
@@ -171,16 +183,12 @@ export default function Wormhole({
       ref={meshRef} 
       position={position} 
       rotation={[Math.PI / 2, 0, 0]} 
-      renderOrder={-1}
+      renderOrder={1000}
     >
-      {/* Radius: baseRadius (6) -> Keeps the "Hole" visible and framed
-         Length: 40
-         Segments: 64 (Smooth rim)
-      */}
       <cylinderGeometry args={[baseRadius, baseRadius, 40, 64, 20, true]} />
       <shaderMaterial
         ref={materialRef}
-        args={[AdvancedWormholeShader]}
+        args={[ColorShiftWormholeShader]}
         transparent
         side={THREE.DoubleSide} 
         depthWrite={false}

@@ -1,6 +1,7 @@
 "use client";
 import React, { useEffect, useRef } from "react";
 import useDeviceStore from "../../logic/useDeviceStore";
+import useCinematicStore from '../../logic/useCinematicStore';
 
 // Simple wheel-driven progress controller for desktop to demo the jump sequence.
 // Emits a custom event `dreamit:jumpProgress` with { progress: 0..1 }.
@@ -26,6 +27,8 @@ export default function JumpScroller() {
     const ROT_ENABLE_GUARD_MS = 120; // short guard after enable to avoid pre-accumulated jumps
 
     function onWheel(e: WheelEvent) {
+      // If the cinematic director has locked the scene, ignore user wheel input
+      if (useCinematicStore.getState().isLocked) return;
       // accumulate only vertical wheel (trackpads included)
       // limit large deltas and use a gentle multiplier so only a few scroll ticks are needed
       const delta = Math.sign(e.deltaY) * Math.min(48, Math.abs(e.deltaY)) * 0.9;
@@ -143,6 +146,30 @@ export default function JumpScroller() {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
   }, [isCanvasAllowed]);
+
+  // When cinematic is locked, drive jump progress from the cinematic timeline
+  useEffect(() => {
+    let rafId: number | null = null;
+    function poll() {
+      const state = useCinematicStore.getState();
+      if (!state.isLocked) return;
+      const prog = Math.max(0, Math.min(1, state.cinematicProgress || 0));
+      // Map cinematicProgress -> astronaut jumpProgress directly
+      window.dispatchEvent(new CustomEvent('dreamit:jumpProgress', { detail: { progress: prog } }));
+      // While locked, freeze rotation input by sending neutral rotation
+      window.dispatchEvent(new CustomEvent('dreamit:rotationProgress', { detail: { progress: 0.5, progressSigned: 0 } }));
+      rafId = requestAnimationFrame(poll);
+    }
+    // subscribe to lock state and start polling when locked
+    const unsub = useCinematicStore.subscribe((s) => s.isLocked, (locked) => {
+      if (locked) poll();
+      else if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+    });
+    return () => {
+      if (rafId) cancelAnimationFrame(rafId);
+      unsub();
+    };
+  }, []);
 
   return null;
 }

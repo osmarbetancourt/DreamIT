@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "../globals.css"; // Ensure this path is correct based on your folder structure
 import ContactCTA from "../components/dom/ContactCTA";
+import PersistentStarsClient from "../components/canvas/PersistentStarsClient";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -42,6 +43,8 @@ export default async function RootLayout({
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased h-full w-full bg-black`}>
         {/* Top-level Contact CTA present for all pages */}
         <ContactCTA lang={lang} />
+        {/* Persistent starfield mounted once at the layout level so it survives route changes */}
+        <PersistentStarsClient />
         {children}
       </body>
     </html>

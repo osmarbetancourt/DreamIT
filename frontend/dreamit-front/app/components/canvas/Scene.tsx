@@ -14,12 +14,13 @@ export default function Scene({
 }: any) {
   
   return (
-    <div className={`fixed inset-0 z-0 bg-black transition-opacity duration-[1500ms] ease-out dreamit-hidden-for-loader ${
+    <div className={`fixed inset-0 z-0 transition-opacity duration-[1500ms] ease-out dreamit-hidden-for-loader ${
         visible ? 'opacity-100' : 'opacity-0'
       }`}>
       <Canvas
         gl={{ 
-          antialias: false, 
+          antialias: false,
+          alpha: true,
           toneMapping: THREE.ACESFilmicToneMapping,
           powerPreference: "high-performance",
           stencil: false,
@@ -27,6 +28,7 @@ export default function Scene({
         }}
         dpr={[1, 1.5]}
         camera={{ position: [0, 0, 15], fov: 35 }}
+        style={{ background: 'transparent' }}
       >
         <Suspense fallback={null}>
           <LoaderReporter onProgress={onProgress} onLoaded={onLoaded} />

@@ -122,6 +122,41 @@ export default function Astronaut({
           first?.stop?.();
         }
       } catch (e) {}
+
+      // Dispose GLTF resources to free VRAM when the astronaut unmounts.
+      try {
+        if (scene) {
+          scene.traverse((child: any) => {
+            try {
+              if (child.isMesh) {
+                if (child.geometry) {
+                  try { child.geometry.dispose(); } catch (e) {}
+                }
+                if (child.material) {
+                  const disposeMat = (mat: any) => {
+                    try {
+                      // dispose textures attached to material
+                      for (const key in mat) {
+                        const value = mat[key];
+                        if (value && value.isTexture) {
+                          try { value.dispose(); } catch (e) {}
+                        }
+                      }
+                      if (mat.dispose) mat.dispose();
+                    } catch (e) {}
+                  };
+
+                  if (Array.isArray(child.material)) {
+                    child.material.forEach(disposeMat);
+                  } else {
+                    disposeMat(child.material);
+                  }
+                }
+              }
+            } catch (e) {}
+          });
+        }
+      } catch (e) {}
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [playAnimation, prefersReducedMotion]);

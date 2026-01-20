@@ -9,6 +9,8 @@ import Astronaut from "./Astronaut";
 import Wormhole from "./Wormhole";
 import dynamic from 'next/dynamic';
 import useWormholeEffectsStore from '../../logic/useWormholeEffectsStore';
+import useCinematicStore from '../../logic/useCinematicStore';
+import { useRouter } from 'next/navigation';
 
 const WormholeEffects = dynamic(() => import('./WormholeEffects'), { ssr: false });
 
@@ -30,6 +32,11 @@ export default function World({ projects = [] }: { projects: any[] }) {
     locked: false,
   });
   const wormholeStartRef = useRef<number | null>(null);
+
+  const router = useRouter();
+
+  const showAstronaut = useCinematicStore((s) => s.showAstronaut);
+  const showPlanets = useCinematicStore((s) => s.showPlanets);
 
   const handleHaloComputed = (data: any) => {
     try {
@@ -65,19 +72,35 @@ export default function World({ projects = [] }: { projects: any[] }) {
 
     // When wormhole becomes locked (rotation stop) enable wormhole-only effects post-render
     useEffect(() => {
-      if (wormholeState.locked) {
+        if (wormholeState.locked) {
         // enable composer and ramp intensity
         // do not mutate stores during render — commit in effect
         useWormholeEffectsStore.getState().setEnabled(true);
         useWormholeEffectsStore.getState().setIntensity(1);
+          // start cinematic director sequence using the wormhole lifetime (seconds)
+          try { useCinematicStore.getState().startSequence(wormholeState.lifetime || 20); } catch (e) {}
+          // prefetch destination route to make the swap instant
+          try { router.prefetch && router.prefetch('/projects'); } catch (e) {}
       } else {
         // gracefully disable
         useWormholeEffectsStore.getState().setIntensity(0);
         // small timeout to let intensity ramp fade
         const t = setTimeout(() => useWormholeEffectsStore.getState().setEnabled(false), 450);
+        // reset director when wormhole unlocks, but only if it hasn't already swapped to planets
+        try {
+          const store = useCinematicStore.getState();
+          if (!store.showPlanets) useCinematicStore.getState().reset();
+        } catch (e) {}
         return () => clearTimeout(t);
       }
     }, [wormholeState.locked]);
+
+    // Fade/hide wormhole when planets show
+    useEffect(() => {
+      if (showPlanets) {
+        setWormholeState((p) => ({ ...p, opacity: 0, visible: false }));
+      }
+    }, [showPlanets]);
 
   // Single, minimal log: announce when wormhole becomes visible
   useEffect(() => {
@@ -116,24 +139,27 @@ export default function World({ projects = [] }: { projects: any[] }) {
       <spotLight position={[0, 1.6, 7]} angle={0.22} penumbra={0.4} intensity={1.4} color={"#ffd8a6"} />
 
       {/* 3. Stars Background */}
-      <Stars radius={100} depth={50} count={3000} factor={4} saturation={0} fade speed={1} />
+      <Stars radius={100} depth={50} count={3000} factor={4} saturation={0} speed={1} />
 
-      {/* Astronaut (Hero) aligned with hero text */}
-      <group position={[0, -33, 0]}>
-        <Astronaut
-          initialScale={9}
-          scale={2}
-          parentY={-33}
-          targetGlobalY={-5}
-          visorMetalness={1}
-          visorRoughness={0.1}
-          visorEmissiveIntensity={0.5}
-          forceVisorStyle={'gold'}
-          logMeshNames={true}
-          onHaloComputed={handleHaloComputed}
-          // (debug props removed)
-        />
-      </group>
+      {/* Astronaut (Hero) aligned with hero text — controlled by cinematic director */}
+      {showAstronaut && (
+        <group renderOrder={10} position={[0, -33, 0]}>
+          <Astronaut
+            initialScale={9}
+            scale={2}
+            parentY={-33}
+            targetGlobalY={-5}
+            visorMetalness={1}
+            visorRoughness={0.1}
+            visorEmissiveIntensity={0.5}
+            forceVisorStyle={'gold'}
+            logMeshNames={true}
+            onHaloComputed={handleHaloComputed}
+          />
+        </group>
+      )}
+
+      {/* Placeholder Solar System removed (use ProjectsScene SolarSystem instead) */}
 
       {/* Global Wormhole: rendered from World so it persists independently */}
       {/* Force shader visible for testing: explicit opacity/speed */}
