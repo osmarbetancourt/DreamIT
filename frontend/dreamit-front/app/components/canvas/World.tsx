@@ -32,6 +32,7 @@ export default function World({ projects = [] }: { projects: any[] }) {
     locked: false,
   });
   const wormholeStartRef = useRef<number | null>(null);
+  const lockUntilRef = useRef<number>(0);
 
   const router = useRouter();
 
@@ -42,7 +43,7 @@ export default function World({ projects = [] }: { projects: any[] }) {
     try {
       const now = performance.now();
       const MIN_LOCK_HOLD_MS = 4000; // keep locked for at least 4s after stop
-      if (!(handleHaloComputed as any)._lockUntil) (handleHaloComputed as any)._lockUntil = 0;
+      if (!lockUntilRef.current) lockUntilRef.current = 0;
       setWormholeState((p) => {
         const base = {
           ...p,
@@ -53,14 +54,19 @@ export default function World({ projects = [] }: { projects: any[] }) {
         // Only respond to explicit rotationStopped events for showing/locking visuals
         if (data.rotationStopped === true) {
           // set a minimum hold to avoid immediate re-hide from small resume movement
-          (handleHaloComputed as any)._lockUntil = now + MIN_LOCK_HOLD_MS;
+          lockUntilRef.current = now + MIN_LOCK_HOLD_MS;
+          console.log('[world] rotationStopped=true, lockUntil set to', lockUntilRef.current);
           // set lifetime to 20s so the wormhole remains visible for cinematic
           return { ...base, locked: true, visible: true, opacity: 1, speed: 12, lifetime: 20 };
         }
 
         if (data.rotationStopped === false && p.locked) {
           // ignore unlock requests that arrive during the minimum lock hold
-          if (now < (handleHaloComputed as any)._lockUntil) return p;
+          if (now < lockUntilRef.current) {
+            console.log('[world] rotationStopped=false ignored (within lockUntil)', { now, lockUntil: lockUntilRef.current });
+            return p;
+          }
+          console.log('[world] rotationStopped=false accepted, unlocking wormhole');
           return { ...base, locked: false, visible: false, opacity: 0, lifetime: 20 };
         }
 

@@ -29,18 +29,20 @@ const useCinematicStore = create<CinematicState>((set, get) => ({
       const t = Math.min(1, (now - start) / DURATION);
       set({ cinematicProgress: t });
 
-      // Only toggle at the very end so the astronaut remains for the wormhole duration
-      if (!toggled && t >= 1.0) {
+      // Start swapping visuals when progress reaches the 90% mark so the
+      // astronaut remains visible for most of the wormhole lifetime.
+      if (!toggled && t >= 0.9) {
         toggled = true;
-        // swap visuals and release the lock so user regains control after cinematic
-        set({ showAstronaut: false, showPlanets: true, isLocked: false });
+        // begin the visual swap but keep the lock until the sequence fully completes
+        set({ showAstronaut: false, showPlanets: true });
       }
 
       if (t < 1) {
         _raf = requestAnimationFrame(step);
       } else {
         _raf = null;
-        set({ cinematicProgress: 1 });
+        // ensure final state and release the lock
+        set({ cinematicProgress: 1, isLocked: false });
       }
     };
 

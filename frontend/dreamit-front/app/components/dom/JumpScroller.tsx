@@ -161,7 +161,11 @@ export default function JumpScroller() {
       rafId = requestAnimationFrame(poll);
     }
     // subscribe to lock state and start polling when locked
-    const unsub = useCinematicStore.subscribe((s) => s.isLocked, (locked) => {
+    let prevLocked = useCinematicStore.getState().isLocked;
+    const unsub = useCinematicStore.subscribe((state) => {
+      const locked = state.isLocked;
+      if (locked === prevLocked) return;
+      prevLocked = locked;
       if (locked) poll();
       else if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
     });

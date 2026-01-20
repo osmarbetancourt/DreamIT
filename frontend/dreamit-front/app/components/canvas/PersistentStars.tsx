@@ -52,6 +52,9 @@ export default function PersistentStars() {
   const handleReady = useCallback(() => {
     // small delay to allow first visible frame to settle, then hide snapshot
     console.timeEnd('[stars] webgl init');
+    try {
+      window.dispatchEvent(new CustomEvent('dreamit:asset-ready', { detail: { id: 'stars' } }));
+    } catch (e) {}
     window.setTimeout(() => setWebglReady(true), 40);
   }, []);
 

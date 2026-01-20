@@ -45,6 +45,7 @@ export default function Astronaut({
   const bonesRef = useRef<Record<string, any>>({});
   const boneBaseQuat = useRef<Record<string, THREE.Quaternion>>({});
   const shrinkRef = useRef(0);
+  const prevShrinkRef = useRef(0);
   const rotationRef = useRef(0); // signed -1..1 (legacy)
   const rotNormRef = useRef(0); // normalized 0..1 (0 = front, 1 = facing back)
   const manualRotateRef = useRef(false);
@@ -111,6 +112,9 @@ export default function Astronaut({
       const radius = Math.max(worldSize.x, worldSize.z) * 0.7;
       const startingScale = typeof initialScale === "number" ? initialScale : scale;
       haloBaseRadiusRef.current = Math.max(0.6, radius / (startingScale || 1));
+      try {
+        window.dispatchEvent(new CustomEvent('dreamit:asset-ready', { detail: { id: 'astronaut' } }));
+      } catch (e) {}
     } catch (e) {
       haloWorldPosRef.current = [0, 0.6, 0];
       haloBaseRadiusRef.current = 1;
@@ -276,11 +280,19 @@ export default function Astronaut({
     const baseY = position[1];
     const bob = Math.sin(state.clock.elapsedTime * 0.6) * 0.05;
     let shrink = Number(shrinkRef.current || 0);
+    // Prevent accidental growth: treat shrink progress as monotonic while
+    // the cinematic/interaction is active. This avoids sudden scale increases
+    // if an external reset or small bounce sets shrink lower briefly.
+    if (shrink < prevShrinkRef.current) {
+      shrink = prevShrinkRef.current;
+    }
     // clamp and force exact completion once it's very close to 1 to avoid lingering 0.999 states
     if (shrink > 0.9999) shrink = 1;
     shrink = Math.max(0, Math.min(1, shrink));
     // if we snapped it to 1, write it back to the ref so other logic sees exact completion
     if (shrink === 1 && shrinkRef.current !== 1) shrinkRef.current = 1;
+    // store monotonic shrink value
+    prevShrinkRef.current = shrink;
     const startScale = typeof initialScale === "number" ? initialScale : scale;
     const currentScale = startScale - (startScale - scale) * shrink; // shrink from `startScale` -> `scale`
 

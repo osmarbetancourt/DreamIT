@@ -1,5 +1,5 @@
 "use client";
-import React, { Suspense, useEffect } from "react";
+import React, { Suspense, useEffect, useState } from "react";
 import { Canvas } from "@react-three/fiber";
 import { Preload, AdaptiveDpr, useProgress } from "@react-three/drei";
 import * as THREE from "three";
@@ -46,16 +46,40 @@ export default function Scene({
 
 function LoaderReporter({ onProgress, onLoaded }: any) {
   const { active, progress, total } = useProgress();
+  const [readyAssets, setReadyAssets] = useState<string[]>([]);
 
   useEffect(() => {
     if (onProgress) onProgress(progress);
   }, [progress, onProgress]);
 
   useEffect(() => {
-    if (progress === 100 || (total === 0 && !active)) {
+    const handler = (e: any) => {
+      const id = e?.detail?.id;
+      if (typeof id === 'string') {
+        setReadyAssets((prev) => (prev.includes(id) ? prev : [...prev, id]));
+      }
+    };
+    window.addEventListener('dreamit:asset-ready', handler as EventListener);
+    return () => window.removeEventListener('dreamit:asset-ready', handler as EventListener);
+  }, []);
+
+  useEffect(() => {
+    const required = ['stars', 'astronaut'];
+    const allReady = required.every((r) => readyAssets.includes(r));
+    const progressComplete = progress === 100 || (total === 0 && !active);
+
+    let timer: any = null;
+    if (progressComplete && allReady) {
       if (onLoaded) onLoaded();
+    } else if (progressComplete && !allReady) {
+      // safety: if progress done but assets not ready, wait up to 8s
+      timer = setTimeout(() => {
+        if (onLoaded) onLoaded();
+      }, 8000);
     }
-  }, [progress, total, active, onLoaded]);
+
+    return () => { if (timer) clearTimeout(timer); };
+  }, [progress, total, active, readyAssets, onLoaded]);
 
   return null;
 }

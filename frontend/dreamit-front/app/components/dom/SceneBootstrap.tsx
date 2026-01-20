@@ -83,7 +83,7 @@ export default function SceneBootstrap({ projects = [], serverIsMobile, locale =
       // We set a safety timeout to force completion if real loader is stuck.
       const safety = setTimeout(() => {
         if (progress < 100) setProgress(100);
-      }, 2500); // 2.5s max wait
+      }, 8000); // 8s max wait
       return () => clearTimeout(safety);
     }
 
