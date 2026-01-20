@@ -27,21 +27,11 @@ function draw2DStars(canvas: HTMLCanvasElement | null) {
   canvas.height = Math.max(1, Math.floor(h * DPR));
   ctx.resetTransform && ctx.resetTransform();
   ctx.scale(DPR, DPR);
-  ctx.clearRect(0, 0, w, h);
-
-  const isMobile = window.innerWidth < 768;
-  const starCount = isMobile ? 40 : 120; // moderate counts for instant draw
-
-  for (let i = 0; i < starCount; i++) {
-    const x = Math.random() * w;
-    const y = Math.random() * h;
-    const radius = Math.random() * (isMobile ? 0.9 : 1.6);
-    const alpha = 0.02 + Math.random() * 0.12;
-    ctx.beginPath();
-    ctx.fillStyle = `rgba(255,255,255,${alpha.toFixed(3)})`;
-    ctx.arc(x, y, radius, 0, Math.PI * 2);
-    ctx.fill();
-  }
+  // Fill a pure black background only (no 2D star drawing).
+  // We intentionally avoid drawing a separate 2D starfield so the
+  // WebGL `Stars` layer is the single source of truth for star positions.
+  ctx.fillStyle = '#000000';
+  ctx.fillRect(0, 0, w, h);
   console.timeEnd('[stars] 2D snapshot');
 }
 
@@ -81,7 +71,8 @@ export default function PersistentStars() {
         aria-hidden
       />
 
-      <Canvas style={{ width: '100%', height: '100%', zIndex: 0 }} gl={{ antialias: false }} dpr={[1, 1.25]} camera={{ position: [0, 0, 50], fov: 45 }}>
+      {/* Canvas background set to pure black so WebGL stars render on true black */}
+      <Canvas style={{ width: '100%', height: '100%', zIndex: 0, background: '#000' }} gl={{ antialias: false }} dpr={[1, 1.25]} camera={{ position: [0, 0, 50], fov: 45 }}>
         <ambientLight intensity={0.2} />
         <Stars radius={120} depth={60} count={1200} factor={2.5} saturation={0} />
         <ReadyFlag onReady={handleReady} />
