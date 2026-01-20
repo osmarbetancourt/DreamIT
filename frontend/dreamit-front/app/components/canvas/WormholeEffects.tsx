@@ -17,7 +17,7 @@ export default function WormholeEffects() {
   if (!allowEffects) return null;
 
   return (
-    <EffectComposer disableNormalPass>
+    <EffectComposer enableNormalPass={false}>
       <Bloom intensity={0.6 * intensity} luminanceThreshold={0.8} mipmapBlur />
       <ChromaticAberration blendFunction={BlendFunction.ADD} offset={[0.001 * intensity, 0.002 * intensity]} />
       <Noise opacity={0.02 * intensity} />
