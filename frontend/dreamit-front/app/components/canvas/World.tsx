@@ -1,8 +1,9 @@
 /// <reference types="react" />
 "use client";
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import { Stars } from "@react-three/drei";
-import { useEffect } from "react";
+import * as THREE from "three";
+import { useFrame } from "@react-three/fiber";
 import { RectAreaLightUniformsLib } from "three/examples/jsm/lights/RectAreaLightUniformsLib";
 import Astronaut from "./Astronaut";
 
@@ -42,7 +43,7 @@ export default function World({ projects = [] }: { projects: any[] }) {
           initialScale={9}
           scale={2}
           parentY={-33}
-          targetGlobalY={-6}
+          targetGlobalY={-5}
           visorMetalness={1}
           visorRoughness={0.1}
           visorEmissiveIntensity={0.5}
@@ -51,6 +52,13 @@ export default function World({ projects = [] }: { projects: any[] }) {
           // (debug props removed)
         />
       </group>
+
+      {/* Debug markers removed per user request */}
     </>
   );
+}
+
+function DebugMarkers() {
+  // Debug markers disabled
+  return null;
 }

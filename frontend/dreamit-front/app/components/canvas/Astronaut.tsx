@@ -1,5 +1,6 @@
 "use client";
-import React, { useRef, useEffect, useState } from "react";
+import React, { useRef, useEffect, useState, useMemo } from "react";
+import Wormhole from "./Wormhole";
 import { useGLTF, useAnimations } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
@@ -43,9 +44,33 @@ export default function Astronaut({
   const bonesRef = useRef<Record<string, any>>({});
   const boneBaseQuat = useRef<Record<string, THREE.Quaternion>>({});
   const shrinkRef = useRef(0);
+  const rotationRef = useRef(0); // signed -1..1 (legacy)
+  const rotNormRef = useRef(0); // normalized 0..1 (0 = front, 1 = facing back)
+  const manualRotateRef = useRef(false);
+  const yawRef = useRef(0); // logical yaw in radians (0..PI) to avoid wrapping issues
+  const baseYawRef = useRef(0);
+  const haloStartRef = useRef<number | null>(null);
+  const haloBaseRadiusRef = useRef<number>(1);
+  const haloWorldPosRef = useRef<[number, number, number] | null>(null);
+  // Visible state must be React state so the portal receives prop updates
+  const [isHaloVisible, setIsHaloVisible] = useState(false);
+  const [haloPosState, setHaloPosState] = useState<[number, number, number] | null>(null);
+  // Mirror ref to avoid stale closures and unnecessary state writes
+  const haloVisibleStateRef = useRef(false);
+  const haloLogRef = useRef(0);
+  
+  const debugAstronautPosRef = useRef<[number, number, number] | null>(null);
+  const _bboxRef = useRef<THREE.Box3>(new THREE.Box3());
+  const _vecSizeRef = useRef<THREE.Vector3>(new THREE.Vector3());
+  const _vecWorldRef = useRef<THREE.Vector3>(new THREE.Vector3());
+  const _vecMinRef = useRef<THREE.Vector3>(new THREE.Vector3());
+  const lastRotLogRef = useRef(0);
   const loggedStartRef = useRef(false);
   const loggedEndRef = useRef(false);
+  const postShrinkLoggedRef = useRef(false);
+  const recomputeOnNextFrameRef = useRef(false);
   const logCooldownRef = useRef(0);
+  const applyLogRef = useRef(0);
 
   // Don't mount heavy model when canvas not allowed
   if (!isCanvasAllowed) return null;
@@ -65,6 +90,26 @@ export default function Astronaut({
         first?.play?.();
       }
     } catch (e) {}
+
+    // compute bounding box once to position halo around the model (world coords)
+    try {
+      const bbox = new THREE.Box3().setFromObject(scene); // world bbox
+      const worldSize = bbox.getSize(new THREE.Vector3());
+      const height = worldSize.y || 1;
+      // prefer placing portal relative to astronaut group's world position
+      const groupWorld = new THREE.Vector3();
+      if (group.current) group.current.getWorldPosition(groupWorld);
+      // place portal centered on group X/Z and slightly above group Y by ~half height
+      haloWorldPosRef.current = [groupWorld.x, groupWorld.y + Math.max(0.6, height * 0.5), groupWorld.z];
+      try { setHaloPosState(haloWorldPosRef.current); } catch (e) {}
+      // base radius from X/Z extents
+      const radius = Math.max(worldSize.x, worldSize.z) * 0.7;
+      const startingScale = typeof initialScale === "number" ? initialScale : scale;
+      haloBaseRadiusRef.current = Math.max(0.6, radius / (startingScale || 1));
+    } catch (e) {
+      haloWorldPosRef.current = [0, 0.6, 0];
+      haloBaseRadiusRef.current = 1;
+    }
     return () => {
       try {
         if (names && names.length && actions) {
@@ -83,16 +128,74 @@ export default function Astronaut({
         const p = Math.max(0, Math.min(1, Number(e.detail?.progress ?? 0)));
         // store shrink progress in a ref for useFrame
         shrinkRef.current = p;
+        // enable manual rotation mode when shrink effectively completes
+        const ROT_ENABLE_THRESH = 0.995;
+        const shouldManual = p >= ROT_ENABLE_THRESH;
+        if (shouldManual && !manualRotateRef.current) {
+          manualRotateRef.current = true;
+          // capture current group yaw as base so subsequent rotation is relative
+          try {
+            baseYawRef.current = group.current ? group.current.rotation.y || 0 : 0;
+          } catch (e) {
+            baseYawRef.current = 0;
+          }
+          // reset rotation targets so manual rotation starts from neutral delta
+          try {
+              rotNormRef.current = 0;
+              rotationRef.current = 0;
+              yawRef.current = 0;
+              // start halo animation (use state so React re-renders)
+              haloStartRef.current = performance.now();
+              if (!haloVisibleStateRef.current) {
+                haloVisibleStateRef.current = true;
+                setIsHaloVisible(true);
+                  // eslint-disable-next-line no-console
+                  console.info('Astronaut halo: show requested', { progress: p });
+              }
+              // mark for a robust post-shrink recompute on the next frame
+              recomputeOnNextFrameRef.current = true;
+              // request a post-shrink recompute on the next frame so halo placement updates
+          } catch (e) {}
+          // manual rotation enabled (silent)
+        } else if (!shouldManual && manualRotateRef.current) {
+          manualRotateRef.current = false;
+          if (haloVisibleStateRef.current) {
+            haloVisibleStateRef.current = false;
+            setIsHaloVisible(false);
+              // eslint-disable-next-line no-console
+              console.info('Astronaut halo: hide requested', { progress: p });
+          }
+          // manual rotation disabled (silent)
+        }
+      } catch (err) {
+        // ignore
+      }
+    };
+    const onRot = (e: any) => {
+      try {
+        if (typeof e.detail?.progress === 'number') {
+          rotNormRef.current = Math.max(0, Math.min(1, Number(e.detail.progress)));
+        } else if (typeof e.detail?.progressSigned === 'number') {
+          // convert signed (-1..1) to normalized (0..1)
+          const s = Math.max(-1, Math.min(1, Number(e.detail.progressSigned)));
+          rotNormRef.current = (s + 1) / 2;
+        }
+        // keep legacy rotationRef in sync for any other logic
+        rotationRef.current = rotNormRef.current * 2 - 1;
+        // rotation progress received (no console logging)
       } catch (err) {
         // ignore
       }
     };
     window.addEventListener("dreamit:jumpProgress", onProgress as EventListener);
-    return () => window.removeEventListener("dreamit:jumpProgress", onProgress as EventListener);
+    window.addEventListener("dreamit:rotationProgress", onRot as EventListener);
+    return () => {
+      window.removeEventListener("dreamit:jumpProgress", onProgress as EventListener);
+      window.removeEventListener("dreamit:rotationProgress", onRot as EventListener);
+    };
   }, []);
 
-  // Targeted appearance-diff logger: when `logMeshNames` is true, compare visible meshes
-  // at each `jumpProgress` update and log only additions/removals. This avoids spam.
+  // Targeted appearance-diff logger stripped to avoid console noise; retained guard to keep traversal opt-in via `logMeshNames`.
   useEffect(() => {
     if (!logMeshNames) return;
     if (!scene) return;
@@ -102,10 +205,8 @@ export default function Astronaut({
       scene.traverse((child: any) => {
         if (!child || !child.isMesh) return;
         if (!child.visible) return;
-        // prefer name, fallback to uuid
         const id = child.name && child.name.length ? child.name : child.uuid;
 
-        // small-volume filter: skip very small meshes to avoid noise
         let skipSmall = false;
         try {
           const bbox = new THREE.Box3().setFromObject(child);
@@ -113,29 +214,10 @@ export default function Astronaut({
           bbox.getSize(size);
           const volume = Math.abs(size.x * size.y * size.z);
           if (volume < 1e-6) skipSmall = true;
-        } catch (e) {
-          // ignore bbox errors
-        }
+        } catch (e) {}
         if (!skipSmall) newSet.add(id);
       });
 
-      const prev = prevVisibleRef.current || new Set<string>();
-      const added = [...newSet].filter((x) => !prev.has(x));
-      const removed = [...prev].filter((x) => !newSet.has(x));
-      if (added.length || removed.length) {
-        // eslint-disable-next-line no-console
-        console.info("Astronaut: jumpProgress", jumpProgress.toFixed(3), "added:", added, "removed:", removed);
-        added.forEach((n) => {
-          const obj = scene.getObjectByName(n) || scene.getObjectByProperty("uuid", n);
-          // eslint-disable-next-line no-console
-          console.debug("added-mesh:", n, obj);
-        });
-        removed.forEach((n) => {
-          const obj = scene.getObjectByName(n) || scene.getObjectByProperty("uuid", n);
-          // eslint-disable-next-line no-console
-          console.debug("removed-mesh:", n, obj);
-        });
-      }
       prevVisibleRef.current = newSet;
     } catch (e) {
       // guard: don't throw in render loop
@@ -143,7 +225,7 @@ export default function Astronaut({
   }, [jumpProgress, logMeshNames, scene]);
 
   // Keep astronaut idle: only the original floating bob, with shrink moving it toward the target global Y while keeping it centered.
-  useFrame((state) => {
+  useFrame((state, delta) => {
     if (!group.current) return;
     const baseY = position[1];
     const bob = Math.sin(state.clock.elapsedTime * 0.6) * 0.05;
@@ -173,56 +255,132 @@ export default function Astronaut({
     group.current.position.z = position[2];
     group.current.rotation.x = 0;
 
-    // One-time debug logs: initial (when shrink starts) and final (when shrink completes)
-    if (logMeshNames) {
-      try {
-        const worldPos = new THREE.Vector3();
-        group.current.getWorldPosition(worldPos);
-        if (shrink > 0 && !loggedStartRef.current) {
-          loggedStartRef.current = true;
-          // eslint-disable-next-line no-console
-          console.info("Astronaut debug (start):", {
-            shrink: shrink,
-            startScale: startScale,
-            currentScale: currentScale,
-            localY: group.current.position.y.toFixed(3),
-            worldY: worldPos.y.toFixed(3),
-            z: group.current.position.z,
-          });
-        }
-        if (shrink >= 0.999 && !loggedEndRef.current) {
-          loggedEndRef.current = true;
-          // eslint-disable-next-line no-console
-          console.info("Astronaut debug (end):", {
-            shrink: shrink,
-            startScale: startScale,
-            currentScale: currentScale,
-            localY: group.current.position.y.toFixed(3),
-            worldY: worldPos.y.toFixed(3),
-            z: group.current.position.z,
-          });
-        }
-      } catch (e) {}
+    // Apply scroll-driven rotation only when shrink has completed (manualRotateRef set)
+    try {
+      // Only apply rotation after shrink has fully completed (manualRotateRef === true).
+      if (manualRotateRef.current) {
+        // Use signed rotation input as a velocity command so sustained scrolling
+        // results in even angular speed. `rotationRef.current` is -1..1 (signed).
+        const signed = rotationRef.current || 0; // -1..1
+        const ROT_SPEED = Math.PI * 1.2; // radians/sec at full input (adjustable)
+        const dt = delta || 0.016;
+        const maxStep = ROT_SPEED * dt;
+        // current local yaw (0..PI)
+        const currentYaw = Math.max(0, Math.min(Math.PI, yawRef.current || 0));
+        // signed velocity step
+        let step = signed * maxStep;
+        // apply and clamp to [0, PI]
+        let nextYaw = currentYaw + step;
+        nextYaw = Math.max(0, Math.min(Math.PI, nextYaw));
+        yawRef.current = nextYaw;
+        const base = baseYawRef.current || 0;
+        group.current.rotation.y = base + nextYaw;
+        // ensure scene not rotated
+      }
+    } catch (e) {}
 
-      // Rate-limited frequent logs (250ms) — re-enabled for detailed capture
-      const now = performance.now();
-      if (now - logCooldownRef.current > 10000) {
-        logCooldownRef.current = now;
+    // Halo is rendered by a separate `HaloPortal` component. We still provide
+    // the world position and base radius from here, and log position if requested.
+    try {
+      // Update halo world position & base radius when visible so it follows
+      // the astronaut properly instead of using a one-time mount calculation.
+      // Compute from the group's world position and the model bbox (scaled).
+      if ((haloVisibleStateRef.current || isHaloVisible || logMeshNames) && group.current && scene) {
         try {
-          const worldPos2 = new THREE.Vector3();
-          group.current.getWorldPosition(worldPos2);
-          // eslint-disable-next-line no-console
-          console.info("Astronaut debug:", {
-            shrink: shrink,
-            startScale: startScale,
-            currentScale: currentScale,
-            localY: group.current.position.y.toFixed(3),
-            worldY: worldPos2.y.toFixed(3),
-            z: group.current.position.z,
-          });
+          // Robust approach: compute bbox in MODEL (scene) local space,
+          // then transform min/center into world space using group's matrixWorld.
+          const modelBbox = _bboxRef.current;
+          const localSize = _vecSizeRef.current;
+          const localCenter = _vecWorldRef.current;
+          const localMin = _vecMinRef.current;
+
+          modelBbox.setFromObject(scene); // model-local bbox (fallback)
+          // Prefer a per-child WORLD-space bbox to avoid issues with nested transforms
+          // and outlier local nodes. We compute a child `Box3().setFromObject(child)`
+          // (which yields world coordinates) and pick the child most likely to be
+          // the main body: highest center Y and near the group's X/Z center.
+          let chosenWorldBox: THREE.Box3 | null = null;
+          let chosenName = 'scene';
+          let bestScore = -Infinity;
+          try {
+            const groupWorldPos = new THREE.Vector3();
+            group.current.getWorldPosition(groupWorldPos);
+            // compute model world bbox for height reference
+            const modelWorldBbox = new THREE.Box3().setFromObject(scene);
+            const modelWorldHeight = modelWorldBbox.getSize(new THREE.Vector3()).y || 1;
+
+            scene.children.forEach((c: any) => {
+              try {
+                const childWorldBox = new THREE.Box3().setFromObject(c);
+                const childCenter = childWorldBox.getCenter(new THREE.Vector3());
+                const childSize = childWorldBox.getSize(new THREE.Vector3());
+                // skip extremely small nodes (likely helpers/artifacts)
+                if (childSize.y < modelWorldHeight * 0.04) return;
+                // score: prefer higher centerY and penalize XZ distance from group center
+                const dx = childCenter.x - groupWorldPos.x;
+                const dz = childCenter.z - groupWorldPos.z;
+                const distXZ = Math.sqrt(dx * dx + dz * dz);
+                const score = childCenter.y - distXZ * 0.25;
+                if (score > bestScore) {
+                  bestScore = score;
+                  chosenWorldBox = childWorldBox.clone();
+                  chosenName = c.name || c.type || 'child';
+                }
+              } catch (e) {}
+            });
+            if (!chosenWorldBox) {
+              // fallback to whole-scene world bbox
+              chosenWorldBox = new THREE.Box3().setFromObject(scene);
+              chosenName = 'scene';
+            }
+          } catch (e) {
+            chosenWorldBox = new THREE.Box3().setFromObject(scene);
+          }
+
+          try {
+            // Use full-model world bbox for halo placement so it encloses the whole astronaut
+            const modelWorldBox = new THREE.Box3().setFromObject(scene);
+            modelWorldBox.getSize(localSize);
+            const modelCenter = modelWorldBox.getCenter(localCenter);
+            const modelSize = localSize.clone();
+
+            // Place halo at group world Y/Z so it wraps the astronaut where the body actually sits
+            const groupWorld = new THREE.Vector3();
+            group.current.getWorldPosition(groupWorld);
+            // Anchor halo to group world position; small forward nudge along camera Z
+            const cameraForwardNudge = 0.15;
+            // Prefer placing the portal around the model's center Y so it wraps the
+            // astronaut body rather than the group's origin. Fall back to groupY.
+            const portalY = (modelCenter && typeof modelCenter.y === 'number') ? modelCenter.y : groupWorld.y;
+            haloWorldPosRef.current = [groupWorld.x, portalY, groupWorld.z + cameraForwardNudge];
+            try { setHaloPosState(haloWorldPosRef.current); } catch (e) {}
+
+            // Compute a flexible halo radius from the model's extents. Allow a
+            // larger max when debugging so testers can force a big ring.
+            const bodySpan = Math.max(modelSize.y, modelSize.x, modelSize.z) * 0.6;
+            const radius = Math.max(0.6, Math.min(6, bodySpan));
+            haloBaseRadiusRef.current = radius;
+            const nowLog = performance.now();
+            if (nowLog - haloLogRef.current > 5000) {
+              haloLogRef.current = nowLog;
+              const groupWorld = new THREE.Vector3();
+              group.current.getWorldPosition(groupWorld);
+              // eslint-disable-next-line no-console
+              console.info('Astronaut halo debug', {
+                haloVisible: isHaloVisible || logMeshNames,
+                haloPos: haloWorldPosRef.current,
+                haloRadius: haloBaseRadiusRef.current,
+                groupWorld: [groupWorld.x, groupWorld.y, groupWorld.z],
+                debugMode: logMeshNames
+              });
+            }
+          } catch (errRe) {
+            // leave halo as-is on error
+          }
         } catch (e) {}
       }
-    }
+    } catch (e) {}
+
   });
 
   // Ensure the group starts at the provided initialScale to avoid an initial snap
@@ -379,12 +537,59 @@ export default function Astronaut({
     return () => {
       try { goldMat.dispose(); } catch (e) {}
       try { darkMat.dispose(); } catch (e) {}
+      // halo material disposed in HaloPortal
     };
   }, [scene, saveData, prefersReducedMotion]);
   return (
-    <group ref={group} position={position} scale={[mountScale, mountScale, mountScale]} dispose={null}>
-      <primitive object={scene} />
-    </group>
+    <>
+      <group ref={group} position={position} scale={[mountScale, mountScale, mountScale]} dispose={null}>
+        <primitive object={scene} />
+      </group>
+      {/* Halo/Portal rendered separately so it does not rotate with the astronaut group */}
+      {(() => {
+        // In debug mode, useFrame forces haloWorldPosRef to [0,0,0], so we can trust the state/ref
+        const portalPosition = (haloPosState ?? haloWorldPosRef.current ?? [position[0], position[1], position[2]]);
+        
+        return (
+          <>
+            <Wormhole
+              position={[0, 0, 0]} // force at world origin to mimic previous magenta marker
+              visible={true} // FORCED VISIBLE
+              baseRadius={haloBaseRadiusRef.current}
+              startTime={null} // Disable fade-in logic to force immediate visibility
+            />
+
+            {/* Debug helpers: show astronaut world pos (red) and portal center (cyan) when `logMeshNames` enabled */}
+            {logMeshNames && debugAstronautPosRef.current ? (
+              <mesh position={debugAstronautPosRef.current} renderOrder={3000}>
+                <sphereGeometry args={[0.35, 24, 16]} />
+                <meshBasicMaterial color={0xff4444} depthTest={false} transparent opacity={0.95} />
+              </mesh>
+            ) : null}
+
+            {logMeshNames && portalPosition ? (
+              <mesh position={portalPosition as [number, number, number]} renderOrder={3000}>
+                <sphereGeometry args={[0.35, 24, 16]} />
+                <meshBasicMaterial color={0x44eeff} depthTest={false} transparent opacity={0.95} />
+              </mesh>
+            ) : null}
+            {logMeshNames && portalPosition ? (
+              // Large always-on-top crosshair at the portal position to confirm exact world location
+              <group position={portalPosition as [number, number, number]} renderOrder={7000}>
+                <mesh rotation={[0, 0, 0]}> 
+                  <ringGeometry args={[haloBaseRadiusRef.current * 0.9, haloBaseRadiusRef.current * 1.1, 32]} />
+                  <meshBasicMaterial color={0xff4444} wireframe={true} depthTest={false} transparent opacity={0.95} side={THREE.DoubleSide} />
+                </mesh>
+                <mesh rotation={[0, 0, 0]}> 
+                  <ringGeometry args={[haloBaseRadiusRef.current * 0.2, haloBaseRadiusRef.current * 0.22, 16]} />
+                  <meshBasicMaterial color={0x00ffcc} wireframe={true} depthTest={false} transparent opacity={0.95} side={THREE.DoubleSide} />
+                </mesh>
+              </group>
+            ) : null}
+          </>
+        );
+      })()}
+    </>
   );
 }
 
