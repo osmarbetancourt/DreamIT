@@ -1,165 +1,137 @@
 "use client";
-import React, { useRef, useMemo, useEffect } from "react";
-import { useFrame, useThree } from "@react-three/fiber";
+import React, { useRef, useMemo } from "react";
+import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
-import { Instances, Instance } from "@react-three/drei";
 
 type Props = {
   position?: [number, number, number];
-  visible?: boolean;
+  speed?: number;
+  opacity?: number;
   baseRadius?: number;
-  startTime?: number | null;
-  active?: boolean;
+  visible?: boolean; // legacy/test helper
+  // debug marker removed; keep API minimal
+  lifetime?: number; // seconds to stay visible before fading out
 };
 
-// Lusion-inspired Warp Tunnel
-// Features: Geometric debris streaks + rotating wireframe vortex
-export default function Wormhole({ 
-  position = [0, 0, 0], 
-  visible = true, 
-  baseRadius = 1.5,
-  startTime = null 
+const WarpShader: any = {
+  uniforms: {
+    uTime: { value: 0 },
+    uSpeed: { value: 0 },
+    uOpacity: { value: 0 },
+    uColor: { value: new THREE.Color("#00ffff") },
+  },
+  vertexShader: `
+    varying vec2 vUv;
+    void main() {
+      vUv = uv;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }
+  `,
+  fragmentShader: `
+    uniform float uTime;
+    uniform float uSpeed;
+    uniform float uOpacity;
+    uniform vec3 uColor;
+    varying vec2 vUv;
+
+    float random(vec2 st) {
+      return fract(sin(dot(st.xy, vec2(12.9898,78.233))) * 43758.5453123);
+    }
+
+    void main() {
+      vec2 grid = vUv;
+      grid.y += uTime * uSpeed;
+      float noise = random(floor(grid * vec2(20.0, 60.0)));
+      float star = step(0.98, noise);
+      float streak = smoothstep(0.0, 1.0, star);
+      float fade = smoothstep(0.0, 0.2, vUv.y) * smoothstep(1.0, 0.8, vUv.y);
+      vec3 finalColor = uColor + vec3(1.0);
+      gl_FragColor = vec4(finalColor, streak * fade * uOpacity);
+    }
+  `,
+};
+
+export default function Wormhole({
+  position = [0, 0, 0],
+  speed = 0,
+  opacity = 0,
+  baseRadius = 5,
+  visible,
+  // debug marker removed; keep API minimal
+  lifetime,
 }: Props) {
-  const groupRef = useRef<THREE.Group>(null!);
-  const { viewport } = useThree();
-  
-  // --- Animation State ---
-  // We track "active" time to fade in/out the tunnel
-  const matRef = useRef<THREE.MeshBasicMaterial>(null!);
-  const wireMatRef = useRef<THREE.MeshBasicMaterial>(null!);
+  const meshRef = useRef<THREE.Mesh | null>(null);
+  const materialRef = useRef<THREE.ShaderMaterial | null>(null);
+  const shader = useMemo(() => WarpShader, []);
 
-  // --- Debris Configuration ---
-  const count = 120;
-  const debrisData = useMemo(() => {
-    const temp = [];
-    for (let i = 0; i < count; i++) {
-      const r = baseRadius * (2 + Math.random() * 6); // Distribute widely
-      const theta = Math.random() * Math.PI * 2;
-      const z = (Math.random() - 0.5) * 60; // Long tunnel
-      
-      const x = Math.cos(theta) * r;
-      const y = Math.sin(theta) * r;
-      
-      const scale = 0.5 + Math.random() * 1.5;
-      const length = 2 + Math.random() * 8; // Streak length
-      const color = Math.random() > 0.5 ? "#00ffff" : "#ff00ff"; // Cyberpunk cyan/magenta
-      
-      temp.push({ x, y, z, scale, length, color });
-    }
-    return temp;
-  }, [baseRadius]);
+  const [targetOpacity, setTargetOpacity] = React.useState<number | null>(null);
+  const [expired, setExpired] = React.useState(false);
 
-  useFrame((state, delta) => {
-    if (!groupRef.current) return;
-    
-    // Visibility / Fade Logic
-    const now = performance.now();
-    let targetOpacity = 0;
-    
-    // If visible is explicitly true or we have a start time indicating animation sequence
-    if (visible || (startTime && (now - startTime) < 4000)) { 
-        // Simple fade in based on startTime if provided, else instant
-        if (startTime) {
-             const progress = (now - startTime) / 500; // 500ms fade in
-             targetOpacity = Math.min(1, Math.max(0, progress));
-        } else {
-             targetOpacity = 1;
-        }
-    } else {
-        targetOpacity = 0;
-    }
+  const finalOpacity = targetOpacity != null ? targetOpacity : (typeof opacity === "number" ? opacity : (visible ? 1 : 0));
+  const finalSpeed = typeof speed === "number" ? speed : (visible ? 10 : 0);
 
-    // Smooth lerp opacity
-    if (matRef.current) {
-        matRef.current.opacity += (targetOpacity - matRef.current.opacity) * delta * 5;
-        matRef.current.visible = matRef.current.opacity > 0.01;
-    }
-    if (wireMatRef.current) {
-        wireMatRef.current.opacity = matRef.current?.opacity * 0.3 || 0;
-        wireMatRef.current.visible = wireMatRef.current.opacity > 0.01;
-    }
-    
-    // Rotation & Movement
-    groupRef.current.rotation.z -= delta * 0.5; // Rotate whole tunnel
-    
-    // Debug log just once to verify we are running
-      // Debug log so we can confirm opacity/visibility quickly
-      if (state.clock.elapsedTime % 2 < delta) {
-        try {
-          // one-line concise info every ~2s
-          console.log('Wormhole status', { opacity: matRef.current?.opacity, wireOpacity: wireMatRef.current?.opacity, visible });
-        } catch (e) {}
+  useFrame((_, delta) => {
+    try {
+      if (materialRef.current) {
+        materialRef.current.uniforms.uTime.value += delta;
+        materialRef.current.uniforms.uSpeed.value = THREE.MathUtils.lerp(
+          materialRef.current.uniforms.uSpeed.value,
+          finalSpeed,
+          0.12
+        );
+        materialRef.current.uniforms.uOpacity.value = THREE.MathUtils.lerp(
+          materialRef.current.uniforms.uOpacity.value,
+          finalOpacity,
+          0.12
+        );
       }
-
-    // Pulse radius
-    const pulse = 1 + Math.sin(state.clock.elapsedTime * 2) * 0.05;
-    groupRef.current.scale.set(pulse, pulse, 1);
+      if (meshRef.current) meshRef.current.rotation.z += delta * 0.05;
+      // periodic debug log (approx once per second)
+      try {
+        const t = Math.floor(performance.now() / 1000);
+        if ((materialRef as any).__lastLogSec !== t && materialRef.current) {
+          (materialRef as any).__lastLogSec = t;
+          // debug logging removed
+        }
+      } catch (e) {}
+    } catch (e) {}
   });
 
-  return (
-    <>
-    <group ref={groupRef} position={position} rotation={[Math.PI / 2, 0, 0]}>
-       {/* 1. Main Geometric Tunnel (Wireframe Cylinder) */}
-       {/* REMOVED EXTRA ROTATION: Cylinder default is Y-aligned. Group rot aligns it to Z. Double rot made it Y again? */}
-       <mesh rotation={[0, 0, 0]}>
-        <cylinderGeometry args={[baseRadius * 2, baseRadius * 0.5, 40, 16, 20, true]} />
-        <meshBasicMaterial 
-          ref={wireMatRef} 
-          color="#22aaff" 
-          wireframe 
-          transparent 
-          opacity={1} 
-          side={THREE.DoubleSide} 
-          blending={THREE.AdditiveBlending} 
-          depthWrite={false}
-          toneMapped={false}
-        />
-       </mesh>
+  React.useEffect(() => {
+    // initialize target opacity
+    setTargetOpacity(typeof opacity === "number" ? opacity : (visible ? 1 : 0));
 
-       {/* 2. Particle Streaks (Instanced) */}
-       {/* We orient debris along Z-axis of the group */}
-       <Instances range={count}>
-         <boxGeometry args={[0.1, 0.1, 1]} />
-         <meshBasicMaterial ref={matRef} color="#ffffff" transparent opacity={1} blending={THREE.AdditiveBlending} depthWrite={false} toneMapped={false} />
-         
-         {debrisData.map((d, i) => (
-           <Debris key={i} data={d} speed={visible ? 15 : 2} />
-         ))}
-       </Instances>
-    </group>
-      {/* High-contrast debug ring at world origin to confirm placement */}
-      <mesh position={[0, 0, 0]} renderOrder={10000}>
-        <ringGeometry args={[baseRadius * 0.9, baseRadius * 1.2, 64]} />
-        <meshBasicMaterial color={0xffff00} transparent opacity={0.95} depthTest={false} toneMapped={false} side={THREE.DoubleSide} />
-      </mesh>
-    </>
-  );
-}
-
-function Debris({ data, speed }: { data: any, speed: number }) {
-  const ref = useRef<any>(null!);
-  const zPos = useRef(data.z);
-
-  useFrame((state, delta) => {
-    if (!ref.current) return;
-    
-    // Move debris fast to simulate rushing past
-    zPos.current += delta * speed;
-    
-    // Cycle them back
-    if (zPos.current > 30) {
-        zPos.current = -30;
+    let fadeTimer: ReturnType<typeof setTimeout> | null = null;
+    let expireTimer: ReturnType<typeof setTimeout> | null = null;
+    if (lifetime && lifetime > 0) {
+      fadeTimer = setTimeout(() => setTargetOpacity(0), lifetime * 1000);
+      expireTimer = setTimeout(() => setExpired(true), (lifetime + 4) * 1000);
     }
-    
-    ref.current.position.z = zPos.current;
-  });
+
+    return () => {
+      if (fadeTimer) clearTimeout(fadeTimer);
+      if (expireTimer) clearTimeout(expireTimer);
+    };
+  }, [position, baseRadius, visible, lifetime]);
+
+  // keep rendering if `debug` is enabled so we can always see the magenta marker
+  if (expired) return null;
+  if ((finalOpacity ?? 0) < 0.01 && (finalSpeed ?? 0) < 0.01) return null;
 
   return (
-    <Instance 
-        ref={ref} 
-        position={[data.x, data.y, data.z]} 
-        scale={[data.scale, data.scale, data.length]} 
-        color={data.color}
-    />
+    <mesh ref={meshRef} position={position} rotation={[Math.PI / 2, 0, 0]} renderOrder={1000}>
+      {/* debug marker: bright magenta sphere to show the origin/halo position */}
+        {/* debug marker removed */}
+
+      <cylinderGeometry args={[baseRadius, baseRadius, 40, 32, 1, true]} />
+      <shaderMaterial
+        ref={materialRef}
+        args={[shader]}
+        transparent
+        side={THREE.BackSide}
+        depthWrite={false}
+        blending={THREE.AdditiveBlending}
+      />
+    </mesh>
   );
 }

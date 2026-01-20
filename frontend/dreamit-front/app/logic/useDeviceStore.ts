@@ -54,8 +54,7 @@ export const useDeviceStore = create<DeviceState>((set) => ({
       (isMobile && saveData)
     );
 
-    // Log for debugging
-    try { console.debug('detectDevice', { innerWidth, ua, maxTouch, pointerCoarse, reportedMemory, deviceMemory, effectiveType, saveData, isMobile, isLowMemory, isSlowConnection, disableCanvas }); } catch(e){}
+    // debug logging removed
 
     set({
       isMobile,

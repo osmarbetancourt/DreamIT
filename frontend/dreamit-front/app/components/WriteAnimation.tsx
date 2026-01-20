@@ -299,8 +299,7 @@ const WriteAnimation: React.FC<Props> = ({
 
   if (process.env.NODE_ENV !== "production") {
     // Debug timing output for tuning overlaps and durations
-    // eslint-disable-next-line no-console
-    console.log("write-animation timing", { orderedIndexes, durations, delays, overlaps, overrides: DEFAULT_PATH_OVERRIDES });
+    // debug logging removed
   }
 
   useEffect(() => {

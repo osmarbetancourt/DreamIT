@@ -1,6 +1,5 @@
 "use client";
 import React, { useRef, useEffect, useState, useMemo } from "react";
-import Wormhole from "./Wormhole";
 import { useGLTF, useAnimations } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
@@ -21,6 +20,7 @@ type Props = {
   forceVisorStyle?: "gold" | "dark" | "custom";
   logMeshNames?: boolean;
   // (no debug props)
+  onHaloComputed?: (data: { position: [number, number, number] | null; baseRadius: number; visible: boolean; rotationSpeed?: number; rotationStopped?: boolean }) => void;
 };
 
 export default function Astronaut({
@@ -36,6 +36,7 @@ export default function Astronaut({
   visorEmissiveIntensity = 0.12,
   forceVisorStyle,
   logMeshNames = false,
+  onHaloComputed,
 }: Props) {
   const { isCanvasAllowed, prefersReducedMotion, saveData } = useDeviceStore();
   const group = useRef<THREE.Group>(null!);
@@ -58,6 +59,10 @@ export default function Astronaut({
   // Mirror ref to avoid stale closures and unnecessary state writes
   const haloVisibleStateRef = useRef(false);
   const haloLogRef = useRef(0);
+  const lastHaloReportRef = useRef(0);
+  const lastYawRef = useRef(0);
+  const rotationStoppedRef = useRef(false);
+  const stopDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
   const debugAstronautPosRef = useRef<[number, number, number] | null>(null);
   const _bboxRef = useRef<THREE.Box3>(new THREE.Box3());
@@ -149,8 +154,11 @@ export default function Astronaut({
               if (!haloVisibleStateRef.current) {
                 haloVisibleStateRef.current = true;
                 setIsHaloVisible(true);
-                  // eslint-disable-next-line no-console
-                  console.info('Astronaut halo: show requested', { progress: p });
+                try {
+                  if (typeof onHaloComputed === 'function') {
+                    onHaloComputed({ position: haloWorldPosRef.current, baseRadius: haloBaseRadiusRef.current, visible: true, rotationSpeed: 0 });
+                  }
+                } catch (e) {}
               }
               // mark for a robust post-shrink recompute on the next frame
               recomputeOnNextFrameRef.current = true;
@@ -162,8 +170,11 @@ export default function Astronaut({
           if (haloVisibleStateRef.current) {
             haloVisibleStateRef.current = false;
             setIsHaloVisible(false);
-              // eslint-disable-next-line no-console
-              console.info('Astronaut halo: hide requested', { progress: p });
+            try {
+              if (typeof onHaloComputed === 'function') {
+                onHaloComputed({ position: haloWorldPosRef.current, baseRadius: haloBaseRadiusRef.current, visible: false });
+              }
+            } catch (e) {}
           }
           // manual rotation disabled (silent)
         }
@@ -279,6 +290,47 @@ export default function Astronaut({
       }
     } catch (e) {}
 
+    // Rotation-stop detection: compute angular velocity and debounce low-velocity state
+    try {
+      const currentYaw = yawRef.current || 0;
+      const lastYaw = lastYawRef.current || 0;
+      const angVel = Math.abs(currentYaw - lastYaw) / (delta || 0.016); // rad/sec approx
+      lastYawRef.current = currentYaw;
+
+      const STOP_VEL_THRESH = 0.02; // rad/sec threshold
+      const DEBOUNCE_MS = 400;
+
+      if (manualRotateRef.current && angVel < STOP_VEL_THRESH) {
+        // candidate for stopped; start debounce
+        if (!stopDebounceRef.current) {
+          stopDebounceRef.current = setTimeout(() => {
+            stopDebounceRef.current = null;
+            if (!rotationStoppedRef.current) {
+              rotationStoppedRef.current = true;
+              // notify parent: rotation stopped
+              try {
+                if (typeof onHaloComputed === 'function') onHaloComputed({ position: haloWorldPosRef.current, baseRadius: haloBaseRadiusRef.current, visible: true, rotationStopped: true });
+              } catch (e) {}
+              // keep local visible state
+              try { haloVisibleStateRef.current = true; setIsHaloVisible(true); } catch (e) {}
+            }
+          }, DEBOUNCE_MS);
+        }
+      } else {
+        // moving: clear debounce and if previously stopped, notify resume
+        if (stopDebounceRef.current) {
+          clearTimeout(stopDebounceRef.current);
+          stopDebounceRef.current = null;
+        }
+        if (rotationStoppedRef.current) {
+          rotationStoppedRef.current = false;
+          try {
+            if (typeof onHaloComputed === 'function') onHaloComputed({ position: haloWorldPosRef.current, baseRadius: haloBaseRadiusRef.current, visible: true, rotationStopped: false });
+          } catch (e) {}
+        }
+      }
+    } catch (e) {}
+
     // Halo is rendered by a separate `HaloPortal` component. We still provide
     // the world position and base radius from here, and log position if requested.
     try {
@@ -363,17 +415,16 @@ export default function Astronaut({
             const nowLog = performance.now();
             if (nowLog - haloLogRef.current > 5000) {
               haloLogRef.current = nowLog;
-              const groupWorld = new THREE.Vector3();
-              group.current.getWorldPosition(groupWorld);
-              // eslint-disable-next-line no-console
-              console.info('Astronaut halo debug', {
-                haloVisible: isHaloVisible || logMeshNames,
-                haloPos: haloWorldPosRef.current,
-                haloRadius: haloBaseRadiusRef.current,
-                groupWorld: [groupWorld.x, groupWorld.y, groupWorld.z],
-                debugMode: logMeshNames
-              });
+              // periodic debug logging removed
             }
+            // Call back to parent with up-to-date halo info (throttled ~200ms)
+            try {
+              const now = performance.now();
+              if (typeof onHaloComputed === 'function' && now - lastHaloReportRef.current > 200) {
+                lastHaloReportRef.current = now;
+                try { onHaloComputed({ position: haloWorldPosRef.current, baseRadius: haloBaseRadiusRef.current, visible: isHaloVisible || haloVisibleStateRef.current, rotationSpeed: Math.abs(rotationRef.current) }); } catch (e) {}
+              }
+            } catch (e) {}
           } catch (errRe) {
             // leave halo as-is on error
           }
@@ -552,12 +603,7 @@ export default function Astronaut({
         
         return (
           <>
-            <Wormhole
-              position={[0, 0, 0]} // force at world origin to mimic previous magenta marker
-              visible={true} // FORCED VISIBLE
-              baseRadius={haloBaseRadiusRef.current}
-              startTime={null} // Disable fade-in logic to force immediate visibility
-            />
+            {/* Wormhole moved to `World.tsx` so it remains mounted independent of Astronaut lifecycle. */}
 
             {/* Debug helpers: show astronaut world pos (red) and portal center (cyan) when `logMeshNames` enabled */}
             {logMeshNames && debugAstronautPosRef.current ? (
