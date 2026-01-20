@@ -5,7 +5,7 @@ type CinematicState = {
   cinematicProgress: number; // 0..1
   showAstronaut: boolean;
   showPlanets: boolean;
-  startSequence: () => void;
+  startSequence: (durationSec?: number) => void;
   reset: () => void;
 };
 
