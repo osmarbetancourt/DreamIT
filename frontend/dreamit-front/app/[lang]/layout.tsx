@@ -74,29 +74,12 @@ export default async function RootLayout({
   const { lang } = await params;
 
   return (
-    <html lang={lang} className="h-full w-full">
-      <head>
-        {/* Preconnect to performance-critical origins. Replace/add your asset hosts here. */}
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link rel="preconnect" href="/" />
-        {/* Site icon: use public/dreamit_logo_wbg.svg as favicon */}
-        <link rel="icon" href="/dreamit_logo_wbg.svg" />
-        <link rel="apple-touch-icon" href="/dreamit_logo_wbg.svg" />
-        {/* PWA manifest and theme color */}
-        <link rel="manifest" href="/manifest.webmanifest" />
-        <meta name="theme-color" content="#000000" />
-        {/* Example CDN host - replace with your real model/texture CDN if any */}
-        <link rel="preconnect" href="https://cdn.example.com" />
-        {/* Example preload: uncomment and set a real hero model path if you have a critical GLB */}
-        {/* <link rel="preload" as="fetch" href="/assets/models/hero-draco.glb" type="model/gltf-binary" /> */}
-      </head>
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased h-full w-full bg-black`}>
-        {/* Top-level Contact CTA present for all pages */}
-        <ContactCTA lang={lang} />
-        {/* Persistent starfield mounted once at the layout level so it survives route changes */}
-        <PersistentStarsClient />
-        {children}
-      </body>
-    </html>
+    <>
+      {/* Top-level Contact CTA present for all pages */}
+      <ContactCTA lang={lang} />
+      {/* Persistent starfield mounted once at the layout level so it survives route changes */}
+      <PersistentStarsClient />
+      {children}
+    </>
   );
 }
