@@ -31,11 +31,18 @@ async function getMetaForLang(lang: string): Promise<Metadata> {
     description,
     viewport: 'width=device-width,initial-scale=1,viewport-fit=cover',
     themeColor: '#000000',
-      openGraph: {
-    title,
-    description,
-    url: 'https://dreamit.software/',
+    authors: [{ name: 'DreamIT' }],
+    keywords: ['web development', 'agency', 'software', 'DreamIT'],
+    robots: {
+      index: true,
+      follow: true,
+    },
+    openGraph: {
+      title,
+      description,
+      url: 'https://dreamit.software/',
       siteName: 'DreamIT',
+      locale: isES ? 'es_ES' : 'en_US',
       images: [
         {
           url: ogImage,

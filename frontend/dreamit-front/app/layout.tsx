@@ -17,11 +17,18 @@ export const metadata: Metadata = {
   description: "DreamIT, web development agency and software solutions",
   viewport: 'width=device-width,initial-scale=1,viewport-fit=cover',
   themeColor: '#000000',
+  authors: [{ name: 'DreamIT' }],
+  keywords: ['web development', 'agency', 'software', 'DreamIT'],
+  robots: {
+    index: true,
+    follow: true,
+  },
   openGraph: {
     title: 'DreamIT',
     description: 'DreamIT, web development agency and software solutions',
     url: 'https://dreamit.software/',
     siteName: 'DreamIT',
+    locale: 'en_US',
     images: [
       {
         url: 'https://dreamit.software/og-es.png',
@@ -63,6 +70,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="apple-touch-icon" href="/dreamit_logo_wbg.png" />
         <link rel="manifest" href="/manifest.webmanifest" />
         <meta name="theme-color" content="#000000" />
+        <meta name="author" content="DreamIT" />
+        <meta name="publisher" content="DreamIT" />
+        <meta name="keywords" content="web development, agency, software, DreamIT" />
+        <meta name="robots" content="index, follow" />
+        <meta itemProp="image" content="https://dreamit.software/og-es.png" />
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased h-full w-full bg-black`}>
         {children}
