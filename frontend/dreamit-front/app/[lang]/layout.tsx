@@ -21,15 +21,17 @@ async function getMetaForLang(lang: string): Promise<Metadata> {
     ? "DreamIT, agencia de desarrollo web y soluciones tecnológicas"
     : "DreamIT, web development agency and software solutions";
 
-  // Use provided PNGs from /public for social previews
-  const ogImage = isES ? "/dreamIT pfp-09.png" : "/dreamIT pfp-09.png";
+  // Use provided PNGs from /public for social previews — build absolute, encoded URLs
+  // Use the Spanish OG image for both languages per request
+  const ogFilename = "og-es.png";
+  const ogImage = `https://dreamit.software/${ogFilename}`;
 
   return {
     title,
     description,
     viewport: 'width=device-width,initial-scale=1,viewport-fit=cover',
     themeColor: '#000000',
-    openGraph: {
+      openGraph: {
     title,
     description,
     url: 'https://dreamit.software/',
