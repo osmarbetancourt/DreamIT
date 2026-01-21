@@ -14,11 +14,53 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
-  title: "DreamIT",
-  description: "DreamIT Agency",
-  viewport: 'width=device-width,initial-scale=1,viewport-fit=cover',
-};
+async function getMetaForLang(lang: string): Promise<Metadata> {
+  const isES = lang === "es" || lang === "es-ES";
+  const title = isES ? "DreamIT Desarrollo Web" : "DreamIT";
+  const description = isES
+    ? "DreamIT, agencia de desarrollo web y soluciones tecnológicas"
+    : "DreamIT, web development agency and software solutions";
+
+  // Use provided PNGs from /public for social previews
+  const ogImage = isES ? "/dreamIT pfp-09.png" : "/dreamIT pfp-09.png";
+
+  return {
+    title,
+    description,
+    viewport: 'width=device-width,initial-scale=1,viewport-fit=cover',
+    themeColor: '#000000',
+    openGraph: {
+    title,
+    description,
+    url: 'https://dreamit.software/',
+      siteName: 'DreamIT',
+      images: [
+        {
+          url: ogImage,
+          width: 1200,
+          height: 630,
+          alt: 'DreamIT',
+        },
+      ],
+      type: 'website',
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+      images: [ogImage],
+    },
+    icons: {
+      icon: '/dreamit_logo_wbg.svg',
+      apple: '/dreamit_logo_wbg.svg',
+    },
+  } as Metadata;
+}
+
+export async function generateMetadata({ params }: { params: { lang: string } }): Promise<Metadata> {
+  const { lang } = params;
+  return getMetaForLang(lang || 'en');
+}
 
 export default async function RootLayout({
   children,
@@ -35,6 +77,12 @@ export default async function RootLayout({
         {/* Preconnect to performance-critical origins. Replace/add your asset hosts here. */}
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link rel="preconnect" href="/" />
+        {/* Site icon: use public/dreamit_logo_wbg.svg as favicon */}
+        <link rel="icon" href="/dreamit_logo_wbg.svg" />
+        <link rel="apple-touch-icon" href="/dreamit_logo_wbg.svg" />
+        {/* PWA manifest and theme color */}
+        <link rel="manifest" href="/manifest.webmanifest" />
+        <meta name="theme-color" content="#000000" />
         {/* Example CDN host - replace with your real model/texture CDN if any */}
         <link rel="preconnect" href="https://cdn.example.com" />
         {/* Example preload: uncomment and set a real hero model path if you have a critical GLB */}
