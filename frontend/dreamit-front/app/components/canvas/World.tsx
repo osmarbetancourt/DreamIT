@@ -55,7 +55,6 @@ export default function World({ projects = [] }: { projects: any[] }) {
         if (data.rotationStopped === true) {
           // set a minimum hold to avoid immediate re-hide from small resume movement
           lockUntilRef.current = now + MIN_LOCK_HOLD_MS;
-          console.log('[world] rotationStopped=true, lockUntil set to', lockUntilRef.current);
           // set lifetime to 20s so the wormhole remains visible for cinematic
           return { ...base, locked: true, visible: true, opacity: 1, speed: 12, lifetime: 20 };
         }
@@ -63,10 +62,10 @@ export default function World({ projects = [] }: { projects: any[] }) {
         if (data.rotationStopped === false && p.locked) {
           // ignore unlock requests that arrive during the minimum lock hold
           if (now < lockUntilRef.current) {
-            console.log('[world] rotationStopped=false ignored (within lockUntil)', { now, lockUntil: lockUntilRef.current });
+            // log removed
             return p;
           }
-          console.log('[world] rotationStopped=false accepted, unlocking wormhole');
+          // log removed
           return { ...base, locked: false, visible: false, opacity: 0, lifetime: 20 };
         }
 
@@ -114,11 +113,11 @@ export default function World({ projects = [] }: { projects: any[] }) {
       if (typeof window !== 'undefined') {
         if (wormholeState.visible && wormholeStartRef.current == null) {
           wormholeStartRef.current = performance.now();
-          console.log('Wormhole visible', { position: wormholeState.position, baseRadius: wormholeState.baseRadius, expectedLifetime: wormholeState.lifetime });
+          // log removed
         } else if (!wormholeState.visible && wormholeStartRef.current != null) {
           const now = performance.now();
           const duration = (now - wormholeStartRef.current) / 1000;
-          console.log('Wormhole hidden', { position: wormholeState.position, baseRadius: wormholeState.baseRadius, actualDuration: Number(duration.toFixed(2)), locked: wormholeState.locked });
+          // log removed
           wormholeStartRef.current = null;
         }
       }

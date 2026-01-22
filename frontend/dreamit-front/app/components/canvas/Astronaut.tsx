@@ -342,7 +342,7 @@ export default function Astronaut({
     try {
       let safeScale = currentScale;
       if (!Number.isFinite(safeScale) || safeScale <= 0 || safeScale > startScale * 8) {
-        console.warn('[astronaut:scale] clamping unsafe scale', { currentScale, startScale });
+        // log removed: clamping unsafe scale
         safeScale = Math.max(0.01, Math.min(safeScale || startScale, startScale * 8));
       }
       group.current.scale.set(safeScale, safeScale, safeScale);
@@ -371,7 +371,7 @@ export default function Astronaut({
             const maxComp = Math.min(3, Math.max(0.25, startScaleLocal * 0.5)); // safe cap in world units
             let dy = Math.max(-maxComp, Math.min(maxComp, deltaPos.y));
             if (Math.abs(dy - deltaPos.y) > 1e-6) {
-              console.warn('[astronaut:compensate] deltaY capped', { requested: deltaPos.y, applied: dy, maxComp });
+              // log removed: deltaY capped
             }
             group.current.position.y += dy;
           } catch (e) {
@@ -494,21 +494,14 @@ export default function Astronaut({
             try {
               const reqMag = Math.sqrt(dx * dx + dz * dz);
               if (reqMag > 1.5 && performance.now() % 1000 < 16) {
-                console.warn('[astronaut] large compensation requested', { reqMag, dx, dz });
-              }
+                  // log removed: large compensation requested
+                }
               // Throttled debug log showing desired vs current center vs camera/world
               const now = performance.now();
-              if (logMeshNames && now - lastAnchorLogRef.current > 500) {
+                if (logMeshNames && now - lastAnchorLogRef.current > 500) {
                 lastAnchorLogRef.current = now;
                 try {
-                  const cam = (state && (state.camera)) ? state.camera : null;
-                  console.log('[astronaut:anchor]', {
-                    desired: { x: desired.x, y: desired.y, z: desired.z },
-                    currentCenter: { x: curCenter.x, y: curCenter.y, z: curCenter.z },
-                    groupWorld: { x: group.current.position.x, y: group.current.position.y, z: group.current.position.z },
-                    cameraPos: cam ? { x: cam.position.x, y: cam.position.y, z: cam.position.z } : null,
-                    halo: haloWorldPosRef.current,
-                  });
+                  // log removed: anchor debug
                 } catch (e) {}
               }
             } catch (e) {}
@@ -841,7 +834,7 @@ export default function Astronaut({
   // smoothly across the full cinematic duration (no instant snap) and only
   // affects the astronaut's local group.
   useEffect(() => {
-    console.warn('[astronaut:cinematic-effect] hook init', { wormholeEffectsEnabled, scale, initialScale });
+    // log removed: cinematic-effect init
 
     // capture a stable start scale when the effect begins
     const startScale = group.current ? (group.current.scale.x || scale) : (typeof initialScale === 'number' ? initialScale : scale * 4);
@@ -852,7 +845,7 @@ export default function Astronaut({
     const unsub = useCinematicStore.subscribe((st) => {
       try {
         if (!st || !st.isLocked) {
-          console.warn('[astronaut:cinematic] not locked or ended - clearing overrides', { lastP });
+          // log removed: cinematic not locked or ended
           // cinematic ended or not locked: clear override and re-enable tumble
           preventTumbleRef.current = false;
           overrideScaleRef.current = null;
@@ -867,15 +860,14 @@ export default function Astronaut({
         // and desired world center so we can avoid resizing the wormhole
         // and prevent a sudden jump when scaling begins.
         if (lastP <= 0 && p > 0) {
-          console.warn('[astronaut:cinematic] started', { startScale, TARGET_SCALE });
+          // log removed: cinematic started
           try {
             const gw = new THREE.Vector3();
             if (group.current) group.current.getWorldPosition(gw);
             initialDesiredWorldCenterRef.current = new THREE.Vector3(gw.x, (typeof targetGlobalY === 'number' ? targetGlobalY : gw.y), gw.z);
-            console.warn('[astronaut:cinematic] captured desiredCenter', initialDesiredWorldCenterRef.current.toArray());
-          } catch (e) { console.warn('[astronaut:cinematic] capture desiredCenter failed', e); }
-          try { haloSnapshotPosRef.current = haloWorldPosRef.current; console.warn('[astronaut:cinematic] haloSnapshotPos', haloSnapshotPosRef.current); } catch (e) { console.warn(e); }
-          try { haloSnapshotRadiusRef.current = haloBaseRadiusRef.current; console.warn('[astronaut:cinematic] haloSnapshotRadius', haloSnapshotRadiusRef.current); } catch (e) { console.warn(e); }
+          } catch (e) { /* log removed */ }
+          try { haloSnapshotPosRef.current = haloWorldPosRef.current; } catch (e) { /* log removed */ }
+          try { haloSnapshotRadiusRef.current = haloBaseRadiusRef.current; } catch (e) { /* log removed */ }
         }
 
         let newScale = startScale + (TARGET_SCALE - startScale) * p;
@@ -904,20 +896,21 @@ export default function Astronaut({
         }
         // set the desired override value; `useFrame` will apply and compensate once
         overrideScaleRef.current = newScale;
-        try { console.warn('[astronaut:cinematic] override-set', { newScale, pivotBefore: pivotBeforeRef.current ? pivotBeforeRef.current.toArray() : null }); } catch (e) {}
 
         // also keep shrinkRef in sync for centering logic
         const denom = startScale - (scale || 0.0001);
         const prog = denom !== 0 ? Math.max(0, Math.min(1, (startScale - newScale) / denom)) : 1;
         shrinkRef.current = prog;
         prevShrinkRef.current = prog;
-        if (Math.abs((lastP || 0) - p) > 0.001) console.warn('[astronaut:cinematic] progress', p, 'newScale', newScale);
-      } catch (e) { console.warn('[astronaut:cinematic] subscribe error', e); }
+        if (Math.abs((lastP || 0) - p) > 0.001) {
+          // log removed: cinematic progress
+        }
+      } catch (e) { /* log removed: cinematic subscribe error */ }
       lastP = st ? (st.cinematicProgress || 0) : -1;
     });
 
     return () => {
-      try { unsub(); } catch (e) { console.warn('[astronaut:cinematic] unsub error', e); }
+      try { unsub(); } catch (e) { /* log removed: unsub error */ }
       preventTumbleRef.current = false;
       overrideScaleRef.current = null;
     };
@@ -932,13 +925,13 @@ export default function Astronaut({
     // the astronaut remains aligned with the wormhole entrance when the
     // cinematic begins. This prevents an early pivot from changing hero
     // layout before the wormhole appears.
-    console.warn('[astronaut:pivot-effect] invoked', { wormholeEffectsEnabled, hasScene: !!scene, hasModel: !!modelRef.current });
+    // log removed: pivot-effect invoked
     if (!wormholeEffectsEnabled) {
-      console.warn('[astronaut:pivot-effect] skipping: wormholeEffectsEnabled=false');
+      // log removed: pivot-effect skipping because wormholeEffectsEnabled=false
       return;
     }
     if (!scene || !modelRef.current) {
-      console.warn('[astronaut:pivot-effect] skipping: missing scene/model', { hasScene: !!scene, hasModel: !!modelRef.current });
+      // log removed: pivot-effect skipping due to missing scene/model
       return;
     }
     // only apply once to avoid repeated re-centering that can cause jumps
@@ -1046,7 +1039,7 @@ export default function Astronaut({
           try { pivotYOffsetRef.current = (pivotYOffsetRef.current || 0) + dy; } catch (e) {}
         }
 
-        console.warn('[astronaut:pivot-snap]', { desired: [desired.x, desired.y, desired.z], modelWorldCenter: [modelWorldCenter.x, modelWorldCenter.y, modelWorldCenter.z], applied: [dx, dz], usedRootJoint });
+        // log removed: pivot-snap debug
       } catch (e) {}
 
       // mark as applied and reset stored desired center so compensation will capture the current world center
@@ -1055,7 +1048,7 @@ export default function Astronaut({
       try {
         const gw = new THREE.Vector3();
         if (group.current) group.current.getWorldPosition(gw);
-        console.warn('[astronaut:pivot-applied]', { center: [center.x, center.y, center.z], modelPosition: modelRef.current.position && [modelRef.current.position.x, modelRef.current.position.y, modelRef.current.position.z], groupWorld: [gw.x, gw.y, gw.z], targetGlobalY: typeof targetGlobalY === 'number' ? targetGlobalY : null });
+        // log removed: pivot-applied debug
       } catch (e) {}
     } catch (e) {
       // ignore bbox errors
@@ -1099,10 +1092,10 @@ export default function Astronaut({
       if (candidateBone) {
         rootBoneRef.current = candidateBone;
         skinnedMeshRef.current = candidateSkinned;
-        try { console.log('[astronaut] root bone chosen', candidateBone.name || candidateBone.type, { hasSkinned: !!candidateSkinned }); } catch (e) {}
+        try { /* log removed: root bone chosen */ } catch (e) {}
       } else if (candidateSkinned) {
         skinnedMeshRef.current = candidateSkinned;
-        try { console.log('[astronaut] skinned mesh found, no clear root bone; using skinned mesh parent as fallback', candidateSkinned.name); } catch (e) {}
+        try { /* log removed: skinned mesh fallback */ } catch (e) {}
       }
     } catch (e) {}
   }, [scene]);

@@ -17,7 +17,6 @@ function ReadyFlag({ onReady }: { onReady: () => void }) {
 
 function draw2DStars(canvas: HTMLCanvasElement | null) {
   if (!canvas) return;
-  console.time('[stars] 2D snapshot');
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
   const DPR = Math.min(window.devicePixelRatio || 1, 1.5);
@@ -32,7 +31,6 @@ function draw2DStars(canvas: HTMLCanvasElement | null) {
   // WebGL `Stars` layer is the single source of truth for star positions.
   ctx.fillStyle = '#000000';
   ctx.fillRect(0, 0, w, h);
-  console.timeEnd('[stars] 2D snapshot');
 }
 
 export default function PersistentStars() {
@@ -41,7 +39,7 @@ export default function PersistentStars() {
 
   const handleReady = useCallback(() => {
     // small delay to allow first visible frame to settle, then hide snapshot
-    console.timeEnd('[stars] webgl init');
+    // webgl init timing removed
     try {
       window.dispatchEvent(new CustomEvent('dreamit:asset-ready', { detail: { id: 'stars' } }));
     } catch (e) {}
@@ -50,7 +48,6 @@ export default function PersistentStars() {
 
   useEffect(() => {
     const canvas = snapshotRef.current;
-    console.time('[stars] webgl init');
     draw2DStars(canvas);
     const onResize = () => draw2DStars(snapshotRef.current as HTMLCanvasElement);
     window.addEventListener('resize', onResize);
@@ -59,7 +56,7 @@ export default function PersistentStars() {
 
   useEffect(() => {
     // log mount for debugging
-    console.log('[stars] PersistentStars mounted', { webglReady });
+    // mount log removed
   }, []);
 
   return (
