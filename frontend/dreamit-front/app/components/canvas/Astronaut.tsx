@@ -2,8 +2,10 @@
 import React, { useRef, useEffect, useState, useMemo } from "react";
 import { useGLTF, useAnimations } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
+import useCinematicStore from '../../logic/useCinematicStore';
 import * as THREE from "three";
 import useDeviceStore from "../../logic/useDeviceStore";
+import useWormholeEffectsStore from '../../logic/useWormholeEffectsStore';
 
 type Props = {
   position?: [number, number, number];
@@ -40,10 +42,15 @@ export default function Astronaut({
 }: Props) {
   const { isCanvasAllowed, prefersReducedMotion, saveData } = useDeviceStore();
   const group = useRef<THREE.Group>(null!);
+  const pivotRef = useRef<THREE.Group>(null!);
+  const modelRef = useRef<any>(null);
+  const initialDesiredWorldCenterRef = useRef<THREE.Vector3 | null>(null);
   const [jumpProgress, setJumpProgress] = useState(0);
   const prevVisibleRef = useRef<Set<string>>(new Set());
   const bonesRef = useRef<Record<string, any>>({});
   const boneBaseQuat = useRef<Record<string, THREE.Quaternion>>({});
+  const rootBoneRef = useRef<any>(null);
+  const skinnedMeshRef = useRef<any>(null);
   const shrinkRef = useRef(0);
   const prevShrinkRef = useRef(0);
   const rotationRef = useRef(0); // signed -1..1 (legacy)
@@ -66,6 +73,9 @@ export default function Astronaut({
   const stopDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
   const debugAstronautPosRef = useRef<[number, number, number] | null>(null);
+  const debugDesiredCenterRef = useRef<[number, number, number] | null>(null);
+  const debugCurrentCenterRef = useRef<[number, number, number] | null>(null);
+  const lastAnchorLogRef = useRef<number>(0);
   const _bboxRef = useRef<THREE.Box3>(new THREE.Box3());
   const _vecSizeRef = useRef<THREE.Vector3>(new THREE.Vector3());
   const _vecWorldRef = useRef<THREE.Vector3>(new THREE.Vector3());
@@ -75,6 +85,7 @@ export default function Astronaut({
   const loggedEndRef = useRef(false);
   const postShrinkLoggedRef = useRef(false);
   const recomputeOnNextFrameRef = useRef(false);
+  const pivotYOffsetRef = useRef(0);
   const logCooldownRef = useRef(0);
   const applyLogRef = useRef(0);
 
@@ -293,6 +304,10 @@ export default function Astronaut({
     if (shrink === 1 && shrinkRef.current !== 1) shrinkRef.current = 1;
     // store monotonic shrink value
     prevShrinkRef.current = shrink;
+    // Clear pivot Y offset once shrink fully completed so normal final layout resumes
+    if (shrink === 1 && pivotYOffsetRef.current !== 0) {
+      pivotYOffsetRef.current = 0;
+    }
     const startScale = typeof initialScale === "number" ? initialScale : scale;
     const currentScale = startScale - (startScale - scale) * shrink; // shrink from `startScale` -> `scale`
 
@@ -307,11 +322,15 @@ export default function Astronaut({
       const compFactor = 0.5;
       const compensation = (startScale - currentScale) * compFactor * (1 - shrink);
 
-    group.current.position.y = moveY + bob + compensation;
+    group.current.position.y = moveY + bob + compensation + (pivotYOffsetRef.current || 0);
     group.current.scale.set(currentScale, currentScale, currentScale);
     group.current.position.x = position[0];
     group.current.position.z = position[2];
-    group.current.rotation.x = 0;
+    // Only zero X rotation when autonomous tumble is NOT active
+    const cinematicProgressNow = useCinematicStore.getState().cinematicProgress || 0;
+    if (manualRotateRef.current || cinematicProgressNow <= 0) {
+      group.current.rotation.x = 0;
+    }
 
     // Apply scroll-driven rotation only when shrink has completed (manualRotateRef set)
     try {
@@ -334,6 +353,105 @@ export default function Astronaut({
         const base = baseYawRef.current || 0;
         group.current.rotation.y = base + nextYaw;
         // ensure scene not rotated
+      }
+      // AUTONOMOUS TUMBLE: start slow tumble & vortex translation when cinematic begins
+      const cinematicProgress = useCinematicStore.getState().cinematicProgress || 0;
+      if (!manualRotateRef.current && cinematicProgress > 0) {
+        // Frontflip / backflip style: rotate primarily around X (pitch)
+        // Use the inner pivot so the outer `group` world position stays fixed
+        // and the model rotates around its geometric center (pivot + model offset).
+        const flipBase = 0.5; // base radians/sec
+        const flipRamp = cinematicProgress * 4.0; // increases with cinematic progress
+        const flipSpeed = flipBase + flipRamp; // final speed
+
+        // apply pitch rotation (frontflip) to pivot
+        try {
+          // If we detected a root bone, rotate that bone so the skinned mesh
+          // deforms around a stable rig pivot. This prevents animated bbox
+          // drift during the tumble.
+          if (rootBoneRef.current) {
+            rootBoneRef.current.rotation.x += delta * flipSpeed;
+            rootBoneRef.current.rotation.y += delta * 0.08 * cinematicProgress;
+            rootBoneRef.current.rotation.z += delta * 0.06 * cinematicProgress;
+          } else if (pivotRef.current) {
+            pivotRef.current.rotation.x += delta * flipSpeed;
+            // small subtle yaw/roll to keep motion organic
+            pivotRef.current.rotation.y += delta * 0.08 * cinematicProgress;
+            pivotRef.current.rotation.z += delta * 0.06 * cinematicProgress;
+          } else {
+            // fallback: rotate group if pivot missing
+            group.current.rotation.x += delta * flipSpeed;
+            group.current.rotation.y += delta * 0.08 * cinematicProgress;
+            group.current.rotation.z += delta * 0.06 * cinematicProgress;
+          }
+        } catch (e) {}
+
+        // keep outer group centered (world position)
+        group.current.position.x = position[0];
+        group.current.position.z = position[2];
+
+        // Centroid compensation: keep astronaut geometric center at the
+        // world position captured when the cinematic started. This prevents
+        // drift when bones/animations/pivot rotations shift the bbox center.
+        try {
+          if (!initialDesiredWorldCenterRef.current) {
+            const v = new THREE.Vector3();
+            group.current.getWorldPosition(v);
+            const finalY = typeof targetGlobalY === 'number' ? targetGlobalY : v.y;
+            initialDesiredWorldCenterRef.current = new THREE.Vector3(v.x, finalY, v.z);
+          }
+
+          // If we have a root bone pivot, the rig should stay centered and
+          // we can skip per-frame centroid compensation which chases animated
+          // bbox changes and caused the previous drift. Otherwise run compensation.
+          if (!rootBoneRef.current && modelRef.current && initialDesiredWorldCenterRef.current) {
+            const curBox = new THREE.Box3().setFromObject(modelRef.current);
+            const curCenter = curBox.getCenter(new THREE.Vector3());
+            const desired = initialDesiredWorldCenterRef.current;
+            const dx = desired.x - curCenter.x;
+            const dz = desired.z - curCenter.z;
+            // Debug: store centers for optional helpers
+            try {
+              debugDesiredCenterRef.current = [desired.x, desired.y, desired.z];
+              debugCurrentCenterRef.current = [curCenter.x, curCenter.y, curCenter.z];
+              debugAstronautPosRef.current = [group.current.position.x, group.current.position.y, group.current.position.z];
+            } catch (e) {}
+
+            // Apply compensation only on X/Z so vertical motion remains driven by shrink/bob
+            // Use a light lerp factor per-frame and cap maximum move to avoid large jumps
+            const LERP = 0.12; // smaller => smoother, prevent overshoot
+            const MAX_MOVE = 0.16; // world units per frame cap
+            let stepX = dx * LERP;
+            let stepZ = dz * LERP;
+            // cap step magnitude
+            stepX = Math.max(-MAX_MOVE, Math.min(MAX_MOVE, stepX));
+            stepZ = Math.max(-MAX_MOVE, Math.min(MAX_MOVE, stepZ));
+            group.current.position.x += stepX;
+            group.current.position.z += stepZ;
+            // occasional console warning if very large instantaneous offset requested
+            try {
+              const reqMag = Math.sqrt(dx * dx + dz * dz);
+              if (reqMag > 1.5 && performance.now() % 1000 < 16) {
+                console.warn('[astronaut] large compensation requested', { reqMag, dx, dz });
+              }
+              // Throttled debug log showing desired vs current center vs camera/world
+              const now = performance.now();
+              if (logMeshNames && now - lastAnchorLogRef.current > 500) {
+                lastAnchorLogRef.current = now;
+                try {
+                  const cam = (state && (state.camera)) ? state.camera : null;
+                  console.log('[astronaut:anchor]', {
+                    desired: { x: desired.x, y: desired.y, z: desired.z },
+                    currentCenter: { x: curCenter.x, y: curCenter.y, z: curCenter.z },
+                    groupWorld: { x: group.current.position.x, y: group.current.position.y, z: group.current.position.z },
+                    cameraPos: cam ? { x: cam.position.x, y: cam.position.y, z: cam.position.z } : null,
+                    halo: haloWorldPosRef.current,
+                  });
+                } catch (e) {}
+              }
+            } catch (e) {}
+          }
+        } catch (e) {}
       }
     } catch (e) {}
 
@@ -638,10 +756,191 @@ export default function Astronaut({
       // halo material disposed in HaloPortal
     };
   }, [scene, saveData, prefersReducedMotion]);
+  const wormholeEffectsEnabled = useWormholeEffectsStore((s) => s.enabled);
+
+  useEffect(() => {
+    // After the GLTF `scene` is available, compute a stable LOCAL-space
+    // center from the largest static geometry (bind pose) and offset the
+    // `primitive` so rotations pivot around that geometric center. Using
+    // geometry.boundingBox avoids following animated bbox changes.
+    // Only apply the pivot offset after the wormhole is visible/active so
+    // the astronaut remains aligned with the wormhole entrance when the
+    // cinematic begins. This prevents an early pivot from changing hero
+    // layout before the wormhole appears.
+    if (!wormholeEffectsEnabled) return;
+    if (!scene || !modelRef.current) return;
+    // only apply once to avoid repeated re-centering that can cause jumps
+    const appliedKey = '__dreamit_pivot_applied';
+    // @ts-ignore
+    if ((modelRef.current as any)[appliedKey]) return;
+    try {
+      // find the largest mesh by geometry bounding box volume (stable geometry)
+      let largestMesh: any = null;
+      let bestVol = -1;
+      scene.traverse((child: any) => {
+        try {
+          if (!child || !child.isMesh || !child.geometry) return;
+          const geom = child.geometry;
+          if (!geom.boundingBox) geom.computeBoundingBox();
+          const size = new THREE.Vector3();
+          geom.boundingBox.getSize(size);
+          const vol = Math.abs(size.x * size.y * size.z);
+          if (vol > bestVol) {
+            bestVol = vol;
+            largestMesh = child;
+          }
+        } catch (e) {
+          // ignore per-child errors
+        }
+      });
+
+      const center = new THREE.Vector3();
+      if (largestMesh && largestMesh.geometry && largestMesh.geometry.boundingBox) {
+        // center in mesh-local coords
+        largestMesh.geometry.boundingBox.getCenter(center);
+        // transform center into the model (scene) local space
+        try {
+          largestMesh.updateWorldMatrix(true, false);
+          scene.updateWorldMatrix(true, false);
+          largestMesh.localToWorld(center); // now world coords
+          scene.worldToLocal(center); // now scene-local coords
+        } catch (e) {
+          // fallback: leave center as-is (mesh-local) if conversion fails
+        }
+      } else {
+        // fallback: use whole-scene bbox center (rare)
+        const bbox = new THREE.Box3().setFromObject(scene);
+        bbox.getCenter(center);
+      }
+
+      // set model position to negative center so its centroid sits at the pivot
+      modelRef.current.position.set(-center.x, -center.y, -center.z);
+      // small safety clamp: if offset is very large, ignore to avoid moving model off-screen
+      const maxOffset = 10;
+      if (Math.abs(center.x) > maxOffset || Math.abs(center.y) > maxOffset || Math.abs(center.z) > maxOffset) {
+        modelRef.current.position.set(0, 0, 0);
+      }
+
+      // Immediately compute the model's current world center and snap the
+      // group's X/Z so the model's center sits exactly at the desired
+      // anchor (use targetGlobalY for final Y). This prevents the first
+      // rotation frames from orbiting around a distant point.
+      try {
+        const gpos = new THREE.Vector3();
+        if (group.current) group.current.getWorldPosition(gpos);
+        const finalY = typeof targetGlobalY === 'number' ? targetGlobalY : gpos.y;
+        const desired = new THREE.Vector3(gpos.x, finalY, gpos.z);
+
+        // ensure matrices are current
+        modelRef.current.updateWorldMatrix(true, false);
+        scene.updateWorldMatrix(true, false);
+
+        // Prefer pivoting around an explicit GLTF root joint when available
+        // (the exported rootJoint is stable for skinned rigs). Use its world
+        // position as the model center to compute the snap. Fall back to the
+        // skinned-mesh or model bbox center when the joint is not present.
+        let modelWorldCenter = new THREE.Vector3();
+        let usedRootJoint = false;
+        try {
+          const rootJoint = scene.getObjectByName && scene.getObjectByName('GLTF_created_0_rootJoint');
+          if (rootJoint) {
+            // use the joint's world position as the center
+            rootJoint.updateWorldMatrix(true, false);
+            rootJoint.getWorldPosition(modelWorldCenter);
+            usedRootJoint = true;
+            // Also prefer driving future tumble by rotating this joint directly
+            try { rootBoneRef.current = rootJoint; } catch (e) {}
+          }
+        } catch (e) {}
+
+        if (!usedRootJoint) {
+          try {
+            const modelWorldBox = new THREE.Box3().setFromObject(modelRef.current);
+            modelWorldCenter = modelWorldBox.getCenter(new THREE.Vector3());
+          } catch (e) {
+            modelWorldCenter = new THREE.Vector3();
+          }
+        }
+
+        const dx = desired.x - modelWorldCenter.x;
+        const dz = desired.z - modelWorldCenter.z;
+        const dy = desired.y - modelWorldCenter.y;
+
+        // apply immediate snap on X/Z in group local space (scene has no parent rotation/scale)
+        if (group.current) {
+          group.current.position.x += dx;
+          group.current.position.z += dz;
+          // persist a Y offset until shrink completes so vertical alignment stays correct
+          try { pivotYOffsetRef.current = (pivotYOffsetRef.current || 0) + dy; } catch (e) {}
+        }
+
+        console.log('[astronaut:pivot-snap]', { desired: [desired.x, desired.y, desired.z], modelWorldCenter: [modelWorldCenter.x, modelWorldCenter.y, modelWorldCenter.z], applied: [dx, dz], usedRootJoint });
+      } catch (e) {}
+
+      // mark as applied and reset stored desired center so compensation will capture the current world center
+      try { (modelRef.current as any)[appliedKey] = true; } catch (e) {}
+      initialDesiredWorldCenterRef.current = null;
+      try {
+        const gw = new THREE.Vector3();
+        if (group.current) group.current.getWorldPosition(gw);
+        console.log('[astronaut:pivot-applied]', { center: [center.x, center.y, center.z], modelPosition: modelRef.current.position && [modelRef.current.position.x, modelRef.current.position.y, modelRef.current.position.z], groupWorld: [gw.x, gw.y, gw.z], targetGlobalY: typeof targetGlobalY === 'number' ? targetGlobalY : null });
+      } catch (e) {}
+    } catch (e) {
+      // ignore bbox errors
+    }
+  }, [scene]);
+
+  // Detect a stable root bone / main skinned mesh to drive rotations on the rig itself.
+  useEffect(() => {
+    if (!scene) return;
+    try {
+      let candidateBone: any = null;
+      let candidateSkinned: any = null;
+      // collect bones and skinned meshes
+      scene.traverse((child: any) => {
+        try {
+          if (!candidateSkinned && child.isSkinnedMesh) {
+            candidateSkinned = child;
+          }
+          // Prefer obvious root/hips bone names
+          const n = (child.name || '').toLowerCase();
+          if (!candidateBone && (child.isBone || child.type === 'Bone')) {
+            if (/hips|pelvis|root|mixamo|hip|body|b_root|center/.test(n)) {
+              candidateBone = child;
+            }
+          }
+        } catch (e) {}
+      });
+
+      // Fallback: if we found a skinned mesh, try its skeleton root
+      if (!candidateBone && candidateSkinned && candidateSkinned.skeleton && candidateSkinned.skeleton.bones && candidateSkinned.skeleton.bones.length) {
+        const bones = candidateSkinned.skeleton.bones;
+        // pick the first bone that looks like a hips/root
+        for (const b of bones) {
+          const bn = (b.name || '').toLowerCase();
+          if (/hips|pelvis|root|mixamo|hip|b_root|center/.test(bn)) { candidateBone = b; break; }
+        }
+        // otherwise use the skeleton root
+        if (!candidateBone) candidateBone = bones[0];
+      }
+
+      if (candidateBone) {
+        rootBoneRef.current = candidateBone;
+        skinnedMeshRef.current = candidateSkinned;
+        try { console.log('[astronaut] root bone chosen', candidateBone.name || candidateBone.type, { hasSkinned: !!candidateSkinned }); } catch (e) {}
+      } else if (candidateSkinned) {
+        skinnedMeshRef.current = candidateSkinned;
+        try { console.log('[astronaut] skinned mesh found, no clear root bone; using skinned mesh parent as fallback', candidateSkinned.name); } catch (e) {}
+      }
+    } catch (e) {}
+  }, [scene]);
+
   return (
     <>
       <group ref={group} position={position} scale={[mountScale, mountScale, mountScale]} dispose={null}>
-        <primitive object={scene} />
+        <group ref={pivotRef} position={[0, 0, 0]}>
+          <primitive ref={modelRef} object={scene} />
+        </group>
       </group>
       {/* Halo/Portal rendered separately so it does not rotate with the astronaut group */}
       {(() => {
@@ -679,6 +978,26 @@ export default function Astronaut({
                 </mesh>
               </group>
             ) : null}
+                  {logMeshNames && debugDesiredCenterRef.current ? (
+                    <mesh position={debugDesiredCenterRef.current as [number, number, number]} renderOrder={8000}>
+                      <sphereGeometry args={[0.12, 12, 8]} />
+                      <meshBasicMaterial color={0xff0000} depthTest={false} transparent opacity={0.9} />
+                    </mesh>
+                  ) : null}
+
+                  {logMeshNames && debugCurrentCenterRef.current ? (
+                    <mesh position={debugCurrentCenterRef.current as [number, number, number]} renderOrder={8000}>
+                      <sphereGeometry args={[0.1, 12, 8]} />
+                      <meshBasicMaterial color={0x00ff00} depthTest={false} transparent opacity={0.9} />
+                    </mesh>
+                  ) : null}
+
+                  {logMeshNames && debugAstronautPosRef.current ? (
+                    <mesh position={debugAstronautPosRef.current as [number, number, number]} renderOrder={8000}>
+                      <sphereGeometry args={[0.08, 10, 8]} />
+                      <meshBasicMaterial color={0x0000ff} depthTest={false} transparent opacity={0.9} />
+                    </mesh>
+                  ) : null}
           </>
         );
       })()}

@@ -138,11 +138,15 @@ export default function World({ projects = [] }: { projects: any[] }) {
       <pointLight position={[2, -1, -4]} intensity={0.25} color="#8fb3ff" />
       <spotLight position={[-6, 8, 6]} angle={0.45} penumbra={0.6} intensity={0.9} color="#ffd27f" />
       {/* Rectangular softbox lights to create visible rectangular specular highlights on the visor */}
-      <rectAreaLight position={[0.8, 3.2, 6.2]} width={1.6} height={0.9} intensity={12} color={"#fff4e0"} rotation={[ -0.2, Math.PI, 0 ]} />
-      <rectAreaLight position={[-1.0, 2.6, 6.5]} width={0.9} height={0.6} intensity={6} color={"#ffd6a8"} rotation={[ -0.25, Math.PI, 0 ]} />
 
-      {/* Warm front catch light to emphasize visor highlights (no HDRI required) */}
-      <spotLight position={[0, 1.6, 7]} angle={0.22} penumbra={0.4} intensity={1.4} color={"#ffd8a6"} />
+      {wormholeState.visible && (
+        <>
+          <rectAreaLight position={[0.8, 3.2, 6.2]} width={1.6} height={0.9} intensity={12} color={"#fff4e0"} rotation={[ -0.2, Math.PI, 0 ]} />
+          <rectAreaLight position={[-1.0, 2.6, 6.5]} width={0.9} height={0.6} intensity={6} color={"#ffd6a8"} rotation={[ -0.25, Math.PI, 0 ]} />
+          {/* Warm front catch light to emphasize visor highlights (no HDRI required) */}
+          <spotLight position={[0, 1.6, 7]} angle={0.22} penumbra={0.4} intensity={1.4} color={"#ffd8a6"} />
+        </>
+      )}
 
       {/* 3. Stars Background */}
       <Stars radius={100} depth={50} count={3000} factor={4} saturation={0} speed={1} />
