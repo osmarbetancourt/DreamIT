@@ -71,6 +71,12 @@ export default function Astronaut({
   const lastYawRef = useRef(0);
   const rotationStoppedRef = useRef(false);
   const stopDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const preventTumbleRef = useRef(false);
+  const overrideScaleRef = useRef<number | null>(null);
+  const haloSnapshotPosRef = useRef<[number, number, number] | null>(null);
+  const haloSnapshotRadiusRef = useRef<number | null>(null);
+  const pivotBeforeRef = useRef<THREE.Vector3 | null>(null);
+  const lastAppliedOverrideRef = useRef<number | null>(null);
   
   const debugAstronautPosRef = useRef<[number, number, number] | null>(null);
   const debugDesiredCenterRef = useRef<[number, number, number] | null>(null);
@@ -291,25 +297,34 @@ export default function Astronaut({
     const baseY = position[1];
     const bob = Math.sin(state.clock.elapsedTime * 0.6) * 0.05;
     let shrink = Number(shrinkRef.current || 0);
-    // Prevent accidental growth: treat shrink progress as monotonic while
-    // the cinematic/interaction is active. This avoids sudden scale increases
-    // if an external reset or small bounce sets shrink lower briefly.
-    if (shrink < prevShrinkRef.current) {
-      shrink = prevShrinkRef.current;
-    }
+    // Allow shrink to go up or down when user scrolls, but keep monotonic
+    // behavior while a cinematic or an override is active to avoid jumps.
+    try {
+      const cinematicLocked = useCinematicStore.getState().isLocked;
+      const overrideActive = overrideScaleRef.current !== null;
+      if (cinematicLocked || overrideActive) {
+        // while cinematic or override is active, prevent shrink decreasing
+        if (shrink < prevShrinkRef.current) shrink = prevShrinkRef.current;
+      }
+      // otherwise, allow bidirectional shrink so scrolling up restores size
+    } catch (e) {}
     // clamp and force exact completion once it's very close to 1 to avoid lingering 0.999 states
     if (shrink > 0.9999) shrink = 1;
     shrink = Math.max(0, Math.min(1, shrink));
     // if we snapped it to 1, write it back to the ref so other logic sees exact completion
     if (shrink === 1 && shrinkRef.current !== 1) shrinkRef.current = 1;
     // store monotonic shrink value
-    prevShrinkRef.current = shrink;
+      // store shrink value for next frame
+      prevShrinkRef.current = shrink;
     // Clear pivot Y offset once shrink fully completed so normal final layout resumes
     if (shrink === 1 && pivotYOffsetRef.current !== 0) {
       pivotYOffsetRef.current = 0;
     }
-    const startScale = typeof initialScale === "number" ? initialScale : scale;
-    const currentScale = startScale - (startScale - scale) * shrink; // shrink from `startScale` -> `scale`
+    const startScale = typeof initialScale === "number" ? initialScale : scale * 4;
+    // If an overrideScale is active (wormhole shrink animation), honor it
+    // so the useFrame loop does not clobber the animated absolute scale.
+    const override = overrideScaleRef.current;
+    const currentScale = override !== null ? override : (startScale - (startScale - scale) * shrink); // shrink from `startScale` -> `scale`
 
     // Compute target local Y based on parent's world Y and desired final global Y
     const targetLocalY = typeof (parentY) === "number" && typeof (targetGlobalY) === "number" ? (targetGlobalY - parentY) : baseY;
@@ -323,7 +338,54 @@ export default function Astronaut({
       const compensation = (startScale - currentScale) * compFactor * (1 - shrink);
 
     group.current.position.y = moveY + bob + compensation + (pivotYOffsetRef.current || 0);
-    group.current.scale.set(currentScale, currentScale, currentScale);
+    // Guard against non-finite or extremely large scales coming from bad math
+    try {
+      let safeScale = currentScale;
+      if (!Number.isFinite(safeScale) || safeScale <= 0 || safeScale > startScale * 8) {
+        console.warn('[astronaut:scale] clamping unsafe scale', { currentScale, startScale });
+        safeScale = Math.max(0.01, Math.min(safeScale || startScale, startScale * 8));
+      }
+      group.current.scale.set(safeScale, safeScale, safeScale);
+    } catch (e) {
+      try { group.current.scale.set(scale, scale, scale); } catch (e) {}
+    }
+
+    // If an override scale was set recently, perform a single compensation
+    // step to preserve the pivot's world position and avoid the visual jump.
+    try {
+      const overrideVal = overrideScaleRef.current;
+      if (overrideVal != null && lastAppliedOverrideRef.current !== overrideVal) {
+        // attempt to compensate using the pivot position captured before the override
+        const pivotObj: any = rootBoneRef.current || modelRef.current || group.current;
+        if (pivotBeforeRef.current && pivotObj && group.current) {
+          // recompute pivot world pos after the scale was applied above
+          pivotObj.updateWorldMatrix(true, false);
+          const after = new THREE.Vector3();
+          pivotObj.getWorldPosition(after);
+          // delta = before - after
+          const deltaPos = new THREE.Vector3().subVectors(pivotBeforeRef.current, after);
+          // Safety: only apply the vertical component and cap it to avoid huge jumps
+          try {
+            const startScaleLocal = typeof initialScale === 'number' ? initialScale : scale * 4;
+            // Keep compensation conservative: proportional to scale but capped to avoid disappearing shifts
+            const maxComp = Math.min(3, Math.max(0.25, startScaleLocal * 0.5)); // safe cap in world units
+            let dy = Math.max(-maxComp, Math.min(maxComp, deltaPos.y));
+            if (Math.abs(dy - deltaPos.y) > 1e-6) {
+              console.warn('[astronaut:compensate] deltaY capped', { requested: deltaPos.y, applied: dy, maxComp });
+            }
+            group.current.position.y += dy;
+          } catch (e) {
+            // fallback: apply small safe shift
+            group.current.position.y += Math.max(-1, Math.min(1, deltaPos.y));
+          }
+          // clear captured before to avoid reapplying
+          pivotBeforeRef.current = null;
+        }
+        lastAppliedOverrideRef.current = overrideVal;
+      }
+      // if override cleared, reset lastAppliedOverrideRef so future overrides re-apply
+      if (overrideVal == null && lastAppliedOverrideRef.current != null) lastAppliedOverrideRef.current = null;
+    } catch (e) {}
     group.current.position.x = position[0];
     group.current.position.z = position[2];
     // Only zero X rotation when autonomous tumble is NOT active
@@ -356,7 +418,7 @@ export default function Astronaut({
       }
       // AUTONOMOUS TUMBLE: start slow tumble & vortex translation when cinematic begins
       const cinematicProgress = useCinematicStore.getState().cinematicProgress || 0;
-      if (!manualRotateRef.current && cinematicProgress > 0) {
+      if (!manualRotateRef.current && cinematicProgress > 0 && !preventTumbleRef.current) {
         // Frontflip / backflip style: rotate primarily around X (pitch)
         // Use the inner pivot so the outer `group` world position stays fixed
         // and the model rotates around its geometric center (pivot + model offset).
@@ -502,105 +564,121 @@ export default function Astronaut({
       // Update halo world position & base radius when visible so it follows
       // the astronaut properly instead of using a one-time mount calculation.
       // Compute from the group's world position and the model bbox (scaled).
-      if ((haloVisibleStateRef.current || isHaloVisible || logMeshNames) && group.current && scene) {
-        try {
-          // Robust approach: compute bbox in MODEL (scene) local space,
-          // then transform min/center into world space using group's matrixWorld.
-          const modelBbox = _bboxRef.current;
-          const localSize = _vecSizeRef.current;
-          const localCenter = _vecWorldRef.current;
-          const localMin = _vecMinRef.current;
-
-          modelBbox.setFromObject(scene); // model-local bbox (fallback)
-          // Prefer a per-child WORLD-space bbox to avoid issues with nested transforms
-          // and outlier local nodes. We compute a child `Box3().setFromObject(child)`
-          // (which yields world coordinates) and pick the child most likely to be
-          // the main body: highest center Y and near the group's X/Z center.
-          let chosenWorldBox: THREE.Box3 | null = null;
-          let chosenName = 'scene';
-          let bestScore = -Infinity;
-          try {
-            const groupWorldPos = new THREE.Vector3();
-            group.current.getWorldPosition(groupWorldPos);
-            // compute model world bbox for height reference
-            const modelWorldBbox = new THREE.Box3().setFromObject(scene);
-            const modelWorldHeight = modelWorldBbox.getSize(new THREE.Vector3()).y || 1;
-
-            scene.children.forEach((c: any) => {
-              try {
-                const childWorldBox = new THREE.Box3().setFromObject(c);
-                const childCenter = childWorldBox.getCenter(new THREE.Vector3());
-                const childSize = childWorldBox.getSize(new THREE.Vector3());
-                // skip extremely small nodes (likely helpers/artifacts)
-                if (childSize.y < modelWorldHeight * 0.04) return;
-                // score: prefer higher centerY and penalize XZ distance from group center
-                const dx = childCenter.x - groupWorldPos.x;
-                const dz = childCenter.z - groupWorldPos.z;
-                const distXZ = Math.sqrt(dx * dx + dz * dz);
-                const score = childCenter.y - distXZ * 0.25;
-                if (score > bestScore) {
-                  bestScore = score;
-                  chosenWorldBox = childWorldBox.clone();
-                  chosenName = c.name || c.type || 'child';
-                }
-              } catch (e) {}
-            });
-            if (!chosenWorldBox) {
-              // fallback to whole-scene world bbox
-              chosenWorldBox = new THREE.Box3().setFromObject(scene);
-              chosenName = 'scene';
-            }
-          } catch (e) {
-            chosenWorldBox = new THREE.Box3().setFromObject(scene);
-          }
-
-          try {
-            // Use full-model world bbox for halo placement so it encloses the whole astronaut
-            const modelWorldBox = new THREE.Box3().setFromObject(scene);
-            modelWorldBox.getSize(localSize);
-            const modelCenter = modelWorldBox.getCenter(localCenter);
-            const modelSize = localSize.clone();
-
-            // Place halo at group world Y/Z so it wraps the astronaut where the body actually sits
-            const groupWorld = new THREE.Vector3();
-            group.current.getWorldPosition(groupWorld);
-            // Anchor halo to group world position; small forward nudge along camera Z
-            const cameraForwardNudge = 0.15;
-            // Prefer placing the portal around the model's center Y so it wraps the
-            // astronaut body rather than the group's origin. Fall back to groupY.
-            const portalY = (modelCenter && typeof modelCenter.y === 'number') ? modelCenter.y : groupWorld.y;
-            haloWorldPosRef.current = [groupWorld.x, portalY, groupWorld.z + cameraForwardNudge];
+      if (group.current && scene) {
+        // If we're currently driving an override scale for the cinematic shrink,
+        // avoid recomputing the halo/world bounds which depend on model size
+        // (scaling the group would otherwise shrink the wormhole). Use the
+        // snapshot captured at cinematic start while override is active.
+        if (overrideScaleRef.current != null) {
+          if ((haloVisibleStateRef.current || isHaloVisible || logMeshNames) && haloSnapshotPosRef.current) {
+            haloWorldPosRef.current = haloSnapshotPosRef.current;
             try { setHaloPosState(haloWorldPosRef.current); } catch (e) {}
-
-            // Compute a flexible halo radius from the model's extents. Allow a
-            // larger max when debugging so testers can force a big ring.
-            const bodySpan = Math.max(modelSize.y, modelSize.x, modelSize.z) * 0.6;
-            const radius = Math.max(0.6, Math.min(6, bodySpan));
-            haloBaseRadiusRef.current = radius;
-            const nowLog = performance.now();
-            if (nowLog - haloLogRef.current > 5000) {
-              haloLogRef.current = nowLog;
-              // periodic debug logging removed
-            }
-            // Call back to parent with up-to-date halo info (throttled ~200ms)
+            if (haloSnapshotRadiusRef.current != null) haloBaseRadiusRef.current = haloSnapshotRadiusRef.current;
+          }
+          // skip the heavy bbox recompute while cinematic scaling is in progress
+        } else {
+          if ((haloVisibleStateRef.current || isHaloVisible || logMeshNames)) {
             try {
-              const now = performance.now();
-              if (typeof onHaloComputed === 'function' && now - lastHaloReportRef.current > 200) {
-                lastHaloReportRef.current = now;
-                try { onHaloComputed({ position: haloWorldPosRef.current, baseRadius: haloBaseRadiusRef.current, visible: isHaloVisible || haloVisibleStateRef.current, rotationSpeed: Math.abs(rotationRef.current) }); } catch (e) {}
+              // Robust approach: compute bbox in MODEL (scene) local space,
+              // then transform min/center into world space using group's matrixWorld.
+              const modelBbox = _bboxRef.current;
+              const localSize = _vecSizeRef.current;
+              const localCenter = _vecWorldRef.current;
+              const localMin = _vecMinRef.current;
+
+              modelBbox.setFromObject(scene); // model-local bbox (fallback)
+              // Prefer a per-child WORLD-space bbox to avoid issues with nested transforms
+              // and outlier local nodes. We compute a child `Box3().setFromObject(child)`
+              // (which yields world coordinates) and pick the child most likely to be
+              // the main body: highest center Y and near the group's X/Z center.
+              let chosenWorldBox: THREE.Box3 | null = null;
+              let chosenName = 'scene';
+              let bestScore = -Infinity;
+              try {
+                const groupWorldPos = new THREE.Vector3();
+                group.current.getWorldPosition(groupWorldPos);
+                // compute model world bbox for height reference
+                const modelWorldBbox = new THREE.Box3().setFromObject(scene);
+                const modelWorldHeight = modelWorldBbox.getSize(new THREE.Vector3()).y || 1;
+
+                scene.children.forEach((c: any) => {
+                  try {
+                    const childWorldBox = new THREE.Box3().setFromObject(c);
+                    const childCenter = childWorldBox.getCenter(new THREE.Vector3());
+                    const childSize = childWorldBox.getSize(new THREE.Vector3());
+                    // skip extremely small nodes (likely helpers/artifacts)
+                    if (childSize.y < modelWorldHeight * 0.04) return;
+                    // score: prefer higher centerY and penalize XZ distance from group center
+                    const dx = childCenter.x - groupWorldPos.x;
+                    const dz = childCenter.z - groupWorldPos.z;
+                    const distXZ = Math.sqrt(dx * dx + dz * dz);
+                    const score = childCenter.y - distXZ * 0.25;
+                    if (score > bestScore) {
+                      bestScore = score;
+                      chosenWorldBox = childWorldBox.clone();
+                      chosenName = c.name || c.type || 'child';
+                    }
+                  } catch (e) {}
+                });
+                if (!chosenWorldBox) {
+                  // fallback to whole-scene world bbox
+                  chosenWorldBox = new THREE.Box3().setFromObject(scene);
+                  chosenName = 'scene';
+                }
+              } catch (e) {
+                chosenWorldBox = new THREE.Box3().setFromObject(scene);
+              }
+
+              try {
+                // Use full-model world bbox for halo placement so it encloses the whole astronaut
+                const modelWorldBox = new THREE.Box3().setFromObject(scene);
+                modelWorldBox.getSize(localSize);
+                const modelCenter = modelWorldBox.getCenter(localCenter);
+                const modelSize = localSize.clone();
+
+                // Place halo at group world Y/Z so it wraps the astronaut where the body actually sits
+                const groupWorld = new THREE.Vector3();
+                group.current.getWorldPosition(groupWorld);
+                // Anchor halo to group world position; small forward nudge along camera Z
+                const cameraForwardNudge = 0.15;
+                // Prefer placing the portal around the model's center Y so it wraps the
+                // astronaut body rather than the group's origin. Fall back to groupY.
+                const portalY = (modelCenter && typeof modelCenter.y === 'number') ? modelCenter.y : groupWorld.y;
+                haloWorldPosRef.current = [groupWorld.x, portalY, groupWorld.z + cameraForwardNudge];
+                try { setHaloPosState(haloWorldPosRef.current); } catch (e) {}
+
+                // Compute a flexible halo radius from the model's extents. Allow a
+                // larger max when debugging so testers can force a big ring.
+                const bodySpan = Math.max(modelSize.y, modelSize.x, modelSize.z) * 0.6;
+                const radius = Math.max(0.6, Math.min(6, bodySpan));
+                haloBaseRadiusRef.current = radius;
+                const nowLog = performance.now();
+                if (nowLog - haloLogRef.current > 5000) {
+                  haloLogRef.current = nowLog;
+                  // periodic debug logging removed
+                }
+                // Call back to parent with up-to-date halo info (throttled ~200ms)
+                try {
+                  const now = performance.now();
+                  if (typeof onHaloComputed === 'function' && now - lastHaloReportRef.current > 200) {
+                    lastHaloReportRef.current = now;
+                    try { onHaloComputed({ position: haloWorldPosRef.current, baseRadius: haloBaseRadiusRef.current, visible: isHaloVisible || haloVisibleStateRef.current, rotationSpeed: Math.abs(rotationRef.current) }); } catch (e) {}
+                  }
+                } catch (e) {}
+              } catch (errRe) {
+                // leave halo as-is on error
               }
             } catch (e) {}
-          } catch (errRe) {
-            // leave halo as-is on error
           }
-        } catch (e) {}
+        }
+        
       }
     } catch (e) {}
 
   });
 
   // Ensure the group starts at the provided initialScale to avoid an initial snap
-  const mountScale = typeof initialScale === "number" ? initialScale : scale;
+  const mountScale = typeof initialScale === "number" ? initialScale : scale * 4;
 
   // Make the visor golden (with low-power fallback)
   useEffect(() => {
@@ -758,6 +836,93 @@ export default function Astronaut({
   }, [scene, saveData, prefersReducedMotion]);
   const wormholeEffectsEnabled = useWormholeEffectsStore((s) => s.enabled);
 
+  // When the wormhole becomes visible and the cinematic locks controls,
+  // drive the astronaut's scale from the cinematic progress so it animates
+  // smoothly across the full cinematic duration (no instant snap) and only
+  // affects the astronaut's local group.
+  useEffect(() => {
+    console.warn('[astronaut:cinematic-effect] hook init', { wormholeEffectsEnabled, scale, initialScale });
+
+    // capture a stable start scale when the effect begins
+    const startScale = group.current ? (group.current.scale.x || scale) : (typeof initialScale === 'number' ? initialScale : scale * 4);
+    const TARGET_SCALE = 0.2;
+
+    // subscribe to cinematic progress and map progress -> scale
+    let lastP = -1;
+    const unsub = useCinematicStore.subscribe((st) => {
+      try {
+        if (!st || !st.isLocked) {
+          console.warn('[astronaut:cinematic] not locked or ended - clearing overrides', { lastP });
+          // cinematic ended or not locked: clear override and re-enable tumble
+          preventTumbleRef.current = false;
+          overrideScaleRef.current = null;
+          return;
+        }
+
+        // while locked, prevent tumble and set scale based on cinematicProgress
+        preventTumbleRef.current = true;
+        const p = Math.max(0, Math.min(1, st.cinematicProgress || 0));
+
+        // on the first frame of the cinematic, capture snapshot of halo
+        // and desired world center so we can avoid resizing the wormhole
+        // and prevent a sudden jump when scaling begins.
+        if (lastP <= 0 && p > 0) {
+          console.warn('[astronaut:cinematic] started', { startScale, TARGET_SCALE });
+          try {
+            const gw = new THREE.Vector3();
+            if (group.current) group.current.getWorldPosition(gw);
+            initialDesiredWorldCenterRef.current = new THREE.Vector3(gw.x, (typeof targetGlobalY === 'number' ? targetGlobalY : gw.y), gw.z);
+            console.warn('[astronaut:cinematic] captured desiredCenter', initialDesiredWorldCenterRef.current.toArray());
+          } catch (e) { console.warn('[astronaut:cinematic] capture desiredCenter failed', e); }
+          try { haloSnapshotPosRef.current = haloWorldPosRef.current; console.warn('[astronaut:cinematic] haloSnapshotPos', haloSnapshotPosRef.current); } catch (e) { console.warn(e); }
+          try { haloSnapshotRadiusRef.current = haloBaseRadiusRef.current; console.warn('[astronaut:cinematic] haloSnapshotRadius', haloSnapshotRadiusRef.current); } catch (e) { console.warn(e); }
+        }
+
+        let newScale = startScale + (TARGET_SCALE - startScale) * p;
+        try {
+          const minS = Math.min(startScale, TARGET_SCALE);
+          const maxS = Math.max(startScale, TARGET_SCALE);
+          newScale = THREE.MathUtils.clamp(newScale, Math.max(0.001, minS * 0.2), maxS * 1.2);
+        } catch (e) {}
+
+        // Record pivot world position BEFORE applying the override scale.
+        // Actual scale application and compensation will happen inside `useFrame`
+        // to ensure consistent ordering with the render loop and avoid
+        // transient oversized transforms.
+        try {
+          const pivotObj: any = rootBoneRef.current || modelRef.current || group.current;
+          if (pivotObj) {
+            const before = new THREE.Vector3();
+            pivotObj.updateWorldMatrix(true, false);
+            pivotObj.getWorldPosition(before);
+            pivotBeforeRef.current = before;
+          } else {
+            pivotBeforeRef.current = null;
+          }
+        } catch (e) {
+          pivotBeforeRef.current = null;
+        }
+        // set the desired override value; `useFrame` will apply and compensate once
+        overrideScaleRef.current = newScale;
+        try { console.warn('[astronaut:cinematic] override-set', { newScale, pivotBefore: pivotBeforeRef.current ? pivotBeforeRef.current.toArray() : null }); } catch (e) {}
+
+        // also keep shrinkRef in sync for centering logic
+        const denom = startScale - (scale || 0.0001);
+        const prog = denom !== 0 ? Math.max(0, Math.min(1, (startScale - newScale) / denom)) : 1;
+        shrinkRef.current = prog;
+        prevShrinkRef.current = prog;
+        if (Math.abs((lastP || 0) - p) > 0.001) console.warn('[astronaut:cinematic] progress', p, 'newScale', newScale);
+      } catch (e) { console.warn('[astronaut:cinematic] subscribe error', e); }
+      lastP = st ? (st.cinematicProgress || 0) : -1;
+    });
+
+    return () => {
+      try { unsub(); } catch (e) { console.warn('[astronaut:cinematic] unsub error', e); }
+      preventTumbleRef.current = false;
+      overrideScaleRef.current = null;
+    };
+  }, [wormholeEffectsEnabled, scale, initialScale]);
+
   useEffect(() => {
     // After the GLTF `scene` is available, compute a stable LOCAL-space
     // center from the largest static geometry (bind pose) and offset the
@@ -767,8 +932,15 @@ export default function Astronaut({
     // the astronaut remains aligned with the wormhole entrance when the
     // cinematic begins. This prevents an early pivot from changing hero
     // layout before the wormhole appears.
-    if (!wormholeEffectsEnabled) return;
-    if (!scene || !modelRef.current) return;
+    console.warn('[astronaut:pivot-effect] invoked', { wormholeEffectsEnabled, hasScene: !!scene, hasModel: !!modelRef.current });
+    if (!wormholeEffectsEnabled) {
+      console.warn('[astronaut:pivot-effect] skipping: wormholeEffectsEnabled=false');
+      return;
+    }
+    if (!scene || !modelRef.current) {
+      console.warn('[astronaut:pivot-effect] skipping: missing scene/model', { hasScene: !!scene, hasModel: !!modelRef.current });
+      return;
+    }
     // only apply once to avoid repeated re-centering that can cause jumps
     const appliedKey = '__dreamit_pivot_applied';
     // @ts-ignore
@@ -874,7 +1046,7 @@ export default function Astronaut({
           try { pivotYOffsetRef.current = (pivotYOffsetRef.current || 0) + dy; } catch (e) {}
         }
 
-        console.log('[astronaut:pivot-snap]', { desired: [desired.x, desired.y, desired.z], modelWorldCenter: [modelWorldCenter.x, modelWorldCenter.y, modelWorldCenter.z], applied: [dx, dz], usedRootJoint });
+        console.warn('[astronaut:pivot-snap]', { desired: [desired.x, desired.y, desired.z], modelWorldCenter: [modelWorldCenter.x, modelWorldCenter.y, modelWorldCenter.z], applied: [dx, dz], usedRootJoint });
       } catch (e) {}
 
       // mark as applied and reset stored desired center so compensation will capture the current world center
@@ -883,7 +1055,7 @@ export default function Astronaut({
       try {
         const gw = new THREE.Vector3();
         if (group.current) group.current.getWorldPosition(gw);
-        console.log('[astronaut:pivot-applied]', { center: [center.x, center.y, center.z], modelPosition: modelRef.current.position && [modelRef.current.position.x, modelRef.current.position.y, modelRef.current.position.z], groupWorld: [gw.x, gw.y, gw.z], targetGlobalY: typeof targetGlobalY === 'number' ? targetGlobalY : null });
+        console.warn('[astronaut:pivot-applied]', { center: [center.x, center.y, center.z], modelPosition: modelRef.current.position && [modelRef.current.position.x, modelRef.current.position.y, modelRef.current.position.z], groupWorld: [gw.x, gw.y, gw.z], targetGlobalY: typeof targetGlobalY === 'number' ? targetGlobalY : null });
       } catch (e) {}
     } catch (e) {
       // ignore bbox errors

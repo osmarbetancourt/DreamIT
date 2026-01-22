@@ -36,10 +36,18 @@ export default function JumpScroller() {
       // Once the smoothed progress is effectively complete (currentRef >= 0.999),
       // allow signed rotation accumulation driven by continued scroll.
       if (currentRef.current >= ROT_ENABLE_THRESH) {
-        // amplify accumulation slightly when very close to MAX_ACC to avoid needing many final ticks
-        const nearEnd = accRef.current >= MAX_ACC * 0.85;
-        const amp = nearEnd ? 1.8 : 1.0;
-        rotAccRef.current = Math.max(-ROT_MAX, Math.min(ROT_MAX, rotAccRef.current + delta * amp));
+        // When near completion we normally switch to rotation accumulation.
+        // However, allow upward scroll (negative delta) to *reduce* the main
+        // accumulator so the astronaut can un-shrink if the user scrolls back.
+        if (delta < 0) {
+          accRef.current = Math.max(0, Math.min(MAX_ACC, accRef.current + delta));
+          targetRef.current = Math.max(0, Math.min(1, accRef.current / MAX_ACC));
+        } else {
+          // amplify accumulation slightly when very close to MAX_ACC to avoid needing many final ticks
+          const nearEnd = accRef.current >= MAX_ACC * 0.85;
+          const amp = nearEnd ? 1.8 : 1.0;
+          rotAccRef.current = Math.max(-ROT_MAX, Math.min(ROT_MAX, rotAccRef.current + delta * amp));
+        }
       } else {
         accRef.current = Math.max(0, Math.min(MAX_ACC, accRef.current + delta));
         targetRef.current = Math.max(0, Math.min(1, accRef.current / MAX_ACC));
