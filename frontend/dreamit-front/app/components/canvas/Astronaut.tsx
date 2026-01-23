@@ -95,6 +95,9 @@ export default function Astronaut({
   const logCooldownRef = useRef(0);
   const applyLogRef = useRef(0);
 
+  const cinematicYawBaseRef = useRef(0);
+  const cinematicStartedRef = useRef(false);
+
   // Don't mount heavy model when canvas not allowed
   if (!isCanvasAllowed) return null;
 
@@ -415,7 +418,18 @@ export default function Astronaut({
           group.current.scale.set(finalS, finalS, finalS);
         } catch (e) {}
 
-        // No rotation/tumble
+        // Add natural Y-axis rotation (yaw) for dynamic facing during cinematic
+        if (cp > 0 && !cinematicStartedRef.current) {
+          cinematicYawBaseRef.current = group.current.rotation.y;
+          cinematicStartedRef.current = true;
+        }
+        if (cinematicStartedRef.current) {
+          const targetYaw = cp * Math.PI * 4.8; // multiple full turns as progress increases
+          group.current.rotation.y = cinematicYawBaseRef.current + targetYaw;
+        }
+      }
+      if (cp === 0) {
+        cinematicStartedRef.current = false;
       }
     } catch (e) {}
 
