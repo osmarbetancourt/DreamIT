@@ -51,6 +51,11 @@ export default function Astronaut({
   const boneBaseQuat = useRef<Record<string, THREE.Quaternion>>({});
   const rootBoneRef = useRef<any>(null);
   const skinnedMeshRef = useRef<any>(null);
+  const startRotations = useRef<{[key: string]: number}>({leftArm: 0, rightArm: 0, leftElbow: 0, rightElbow: 0, leftThigh: 0, rightThigh: 0, leftKnee: 0, rightKnee: 0, rightWrist: 0, hip: 0, neck: 0, spine: 0, head: 0, leftAnkle: 0, rightAnkle: 0});
+  const startSpineX = useRef(0);
+  const startCaptured = useRef(false);
+  const actionRef = useRef<any>(null);
+  const mixerRef = useRef<any>(null);
   const shrinkRef = useRef(0);
   const prevShrinkRef = useRef(0);
   const rotationRef = useRef(0); // signed -1..1 (legacy)
@@ -105,7 +110,8 @@ export default function Astronaut({
   const glbPath = "/astronaut-draco.glb";
   // load model
   const { scene, animations } = useGLTF(glbPath) as any;
-  const { actions, names } = useAnimations(animations, group as any);
+  const { actions, mixer, names } = useAnimations(animations, group as any);
+  mixerRef.current = mixer;
 
   useEffect(() => {
     if (!playAnimation || prefersReducedMotion) return;
@@ -113,6 +119,7 @@ export default function Astronaut({
     try {
       if (names && names.length && actions) {
         const first = actions[names[0]];
+        actionRef.current = first;
         first?.play?.();
       }
     } catch (e) {}
@@ -418,18 +425,45 @@ export default function Astronaut({
           group.current.scale.set(finalS, finalS, finalS);
         } catch (e) {}
 
-        // Add natural Y-axis rotation (yaw) for dynamic facing during cinematic
+        // Add natural Y-axis rotation (yaw) fhttps://lusion.co/or dynamic facing during cinematic
         if (cp > 0 && !cinematicStartedRef.current) {
           cinematicYawBaseRef.current = group.current.rotation.y;
           cinematicStartedRef.current = true;
+          actionRef.current?.stop();
+          // Reset bones to base pose after stopping animation
+          Object.keys(bonesRef.current).forEach(key => {
+            const bone = bonesRef.current[key];
+            const base = boneBaseQuat.current[key];
+            if (bone && base) {
+              bone.quaternion.copy(base);
+            }
+          });
         }
         if (cinematicStartedRef.current) {
           const targetYaw = cp * Math.PI * 4.8; // multiple full turns as progress increases
           group.current.rotation.y = cinematicYawBaseRef.current + targetYaw;
         }
+
+        // Procedural vortex struggle animation: arms raising over head
+        const struggleSpeed = 8;
+        const struggleTime = state.clock.elapsedTime * struggleSpeed;
+        const struggleIntensity = cp; // scale with progress
+        if (bonesRef.current.leftArm) {
+          bonesRef.current.leftArm.rotation.x = -1.0 * struggleIntensity; // raise arm up
+        }
+        if (bonesRef.current.rightArm) {
+          bonesRef.current.rightArm.rotation.x = -1.0 * struggleIntensity; // raise arm up
+        }
+        if (bonesRef.current.spine && boneBaseQuat.current.spine) {
+          const ry = Math.sin(struggleTime * 0.5) * 0.2 * struggleIntensity;
+          bonesRef.current.spine.quaternion.copy(boneBaseQuat.current.spine).multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(0, ry, 0)));
+        }
+        // Update bone matrices to apply changes
+        if (rootBoneRef.current) rootBoneRef.current.updateMatrixWorld(true);
       }
       if (cp === 0) {
         cinematicStartedRef.current = false;
+        actionRef.current?.play();
       }
     } catch (e) {}
 
@@ -734,6 +768,10 @@ export default function Astronaut({
         const isBone = child.isBone || child.type === 'Bone';
         if (!isBone) return;
 
+        console.log('Bone found:', child.name); // DEBUG: log all bone names
+
+        if (child.name === 'GLTF_created_0_rootJoint') rootBoneRef.current = child;
+
         if (!bonesRef.current.leftShoulder && /l_shoulder|left.*shoulder|shoulder_l|l_clavicle|left.*clavicle/.test(n)) {
           bonesRef.current.leftShoulder = child;
           boneBaseQuat.current.leftShoulder = child.quaternion.clone();
@@ -749,6 +787,62 @@ export default function Astronaut({
         if (!bonesRef.current.neck && /neck|neck_/.test(n)) {
           bonesRef.current.neck = child;
           boneBaseQuat.current.neck = child.quaternion.clone();
+        }
+        if (!bonesRef.current.head && /head|head_/.test(n)) {
+          bonesRef.current.head = child;
+          boneBaseQuat.current.head = child.quaternion.clone();
+        }
+        if (!bonesRef.current.leftArm && /l_arm|left.*arm|arm_l|l_upper|left.*upper|l_bicep|left.*bicep/.test(n)) {
+          bonesRef.current.leftArm = child;
+          boneBaseQuat.current.leftArm = child.quaternion.clone();
+        }
+        if (!bonesRef.current.rightArm && /r_arm|right.*arm|arm_r|r_upper|right.*upper|r_bicep|right.*bicep/.test(n)) {
+          bonesRef.current.rightArm = child;
+          boneBaseQuat.current.rightArm = child.quaternion.clone();
+        }
+        if (!bonesRef.current.leftElbow && /l_elbow|l_forearm|elbow_l|forearm_l/.test(n)) {
+          bonesRef.current.leftElbow = child;
+          boneBaseQuat.current.leftElbow = child.quaternion.clone();
+        }
+        if (!bonesRef.current.rightElbow && /r_elbow|r_forearm|elbow_r|forearm_r/.test(n)) {
+          bonesRef.current.rightElbow = child;
+          boneBaseQuat.current.rightElbow = child.quaternion.clone();
+        }
+        if (!bonesRef.current.hip && /hip|hips/.test(n)) {
+          bonesRef.current.hip = child;
+          boneBaseQuat.current.hip = child.quaternion.clone();
+        }
+        if (!bonesRef.current.neck && /neck/.test(n)) {
+          bonesRef.current.neck = child;
+          boneBaseQuat.current.neck = child.quaternion.clone();
+        }
+        if (!bonesRef.current.leftAnkle && /l_ankle/.test(n)) {
+          bonesRef.current.leftAnkle = child;
+          boneBaseQuat.current.leftAnkle = child.quaternion.clone();
+        }
+        if (!bonesRef.current.rightAnkle && /r_ankle/.test(n)) {
+          bonesRef.current.rightAnkle = child;
+          boneBaseQuat.current.rightAnkle = child.quaternion.clone();
+        }
+        if (!bonesRef.current.leftThigh && /l_thigh|l_upperleg|thigh_l|upperleg_l/.test(n)) {
+          bonesRef.current.leftThigh = child;
+          boneBaseQuat.current.leftThigh = child.quaternion.clone();
+        }
+        if (!bonesRef.current.rightThigh && /r_thigh|r_upperleg|thigh_r|upperleg_r/.test(n)) {
+          bonesRef.current.rightThigh = child;
+          boneBaseQuat.current.rightThigh = child.quaternion.clone();
+        }
+        if (!bonesRef.current.leftKnee && /l_knee|l_lowerleg|knee_l|lowerleg_l/.test(n)) {
+          bonesRef.current.leftKnee = child;
+          boneBaseQuat.current.leftKnee = child.quaternion.clone();
+        }
+        if (!bonesRef.current.rightKnee && /r_knee|r_lowerleg|knee_r|lowerleg_r/.test(n)) {
+          bonesRef.current.rightKnee = child;
+          boneBaseQuat.current.rightKnee = child.quaternion.clone();
+        }
+        if (!bonesRef.current.rightWrist && /r_wrist/.test(n)) {
+          bonesRef.current.rightWrist = child;
+          boneBaseQuat.current.rightWrist = child.quaternion.clone();
         }
         if (!bonesRef.current.head && /head|head_/.test(n)) {
           bonesRef.current.head = child;
@@ -964,6 +1058,121 @@ export default function Astronaut({
       overrideScaleRef.current = null;
     };
   }, [wormholeEffectsEnabled, scale, initialScale]);
+
+  // Procedural animation for cinematic struggle
+  useFrame((state) => {
+    const cp = useCinematicStore.getState().cinematicProgress || 0;
+    if (cp > 0) {
+      // Pause animation at current frame to avoid snap to T-pose
+      if (mixerRef.current && mixerRef.current.timeScale !== 0) {
+        mixerRef.current.timeScale = 0;
+        // Capture starting rotations from the paused idle animation pose
+        if (bonesRef.current.leftArm) startRotations.current.leftArm = bonesRef.current.leftArm.rotation.z;
+        if (bonesRef.current.rightArm) startRotations.current.rightArm = bonesRef.current.rightArm.rotation.z;
+        if (bonesRef.current.leftElbow) startRotations.current.leftElbow = bonesRef.current.leftElbow.rotation.y;
+        if (bonesRef.current.rightElbow) startRotations.current.rightElbow = bonesRef.current.rightElbow.rotation.y;
+        if (bonesRef.current.leftThigh) startRotations.current.leftThigh = bonesRef.current.leftThigh.rotation.z;
+        if (bonesRef.current.rightThigh) startRotations.current.rightThigh = bonesRef.current.rightThigh.rotation.z;
+        if (bonesRef.current.leftKnee) startRotations.current.leftKnee = bonesRef.current.leftKnee.rotation.z;
+        if (bonesRef.current.rightKnee) startRotations.current.rightKnee = bonesRef.current.rightKnee.rotation.z;
+        if (bonesRef.current.hip) startRotations.current.hip = bonesRef.current.hip.rotation.y;
+        if (bonesRef.current.neck) startRotations.current.neck = bonesRef.current.neck.rotation.z;
+        if (bonesRef.current.rightWrist) startRotations.current.rightWrist = bonesRef.current.rightWrist.rotation.z;
+        if (bonesRef.current.spine) startRotations.current.spine = bonesRef.current.spine.rotation.y;
+        if (bonesRef.current.spine) startSpineX.current = bonesRef.current.spine.rotation.x;
+        if (bonesRef.current.head) startRotations.current.head = bonesRef.current.head.rotation.x;
+        if (bonesRef.current.leftAnkle) startRotations.current.leftAnkle = bonesRef.current.leftAnkle.rotation.z; // Capture from Z axis since we animate Z
+        if (bonesRef.current.rightAnkle) startRotations.current.rightAnkle = bonesRef.current.rightAnkle.rotation.z; // Capture from Z axis since we animate Z
+        startCaptured.current = true;
+      }
+
+      if (startCaptured.current) {
+        // Goofy, exaggerated struggle: frog-swimming with flails, kicks, and twists
+        const struggleIntensity = cp;
+        const time = state.clock.elapsedTime;
+        const flailSpeed = 6;
+        const flail = Math.sin(time * flailSpeed) * 0.5;
+
+        // Arms: Subtle shoulder shrugs with elbow bends
+        if (bonesRef.current.leftArm) {
+          const shoulderCycle = Math.sin(time * 4) * (8 * Math.PI / 180); // Subtle 8° cyclical movement
+          bonesRef.current.leftArm.rotation.z = startRotations.current.leftArm + shoulderCycle;
+        }
+        if (bonesRef.current.rightArm) {
+          const shoulderCycle = Math.sin(time * 4 + Math.PI) * (8 * Math.PI / 180); // Opposite phase for natural motion
+          bonesRef.current.rightArm.rotation.z = startRotations.current.rightArm + shoulderCycle;
+        }
+        if (bonesRef.current.leftElbow) {
+          const bendCycle = Math.sin(time * 5) * (25 * Math.PI / 180) + (25 * Math.PI / 180); // Oscillate 0° to 50° repeatedly
+          bonesRef.current.leftElbow.rotation.y = startRotations.current.leftElbow + bendCycle * -1; // Reverse direction
+        }
+        if (bonesRef.current.rightElbow) {
+          const bendCycle = Math.sin(time * 5) * (25 * Math.PI / 180) + (25 * Math.PI / 180); // Oscillate 0° to 50° repeatedly
+          bonesRef.current.rightElbow.rotation.y = startRotations.current.rightElbow + bendCycle;
+        }
+
+        // Legs: Walking motion - alternate forward/back with slight knee flex
+        const walkSpeed = 4;
+        const walkPhase = Math.sin(time * walkSpeed);
+        const legAmplitude = 0.7; // Reduced by 20%
+        if (bonesRef.current.leftThigh) {
+          bonesRef.current.leftThigh.rotation.x = -0.55 * startRotations.current.leftThigh + -walkPhase * legAmplitude; // 20% shift opposite to idle
+        }
+        if (bonesRef.current.rightThigh) {
+          bonesRef.current.rightThigh.rotation.z = 0.1 * startRotations.current.rightThigh + -walkPhase * legAmplitude; // 10% centering towards idle
+        }
+        if (bonesRef.current.leftKnee) {
+          bonesRef.current.leftKnee.rotation.z = -0.5 * startRotations.current.leftKnee + -Math.abs(walkPhase) * 0.5; // 30% shift opposite, match axis
+        }
+        if (bonesRef.current.rightKnee) {
+          bonesRef.current.rightKnee.rotation.z = 0.1 * startRotations.current.rightKnee + -Math.abs(-walkPhase) * 0.5; // 10% centering
+        }
+
+        // Hip: Subtle sway for fluidity
+        if (bonesRef.current.hip) {
+          const sway = Math.sin(time * walkSpeed) * 0.1; // Subtle hip sway
+          bonesRef.current.hip.rotation.y = startRotations.current.hip + sway;
+        }
+
+        // Spine: Twist like drowning contortion
+        if (bonesRef.current.spine) {
+          const startY = startRotations.current.spine || 0;
+          const targetY = Math.sin(time * 4) * struggleIntensity * 0.3; // Goofy twist
+          bonesRef.current.spine.rotation.y = startY + (targetY - startY) * cp;
+          // Add subtle forward/back lean synced with walk
+          bonesRef.current.spine.rotation.x = startSpineX.current + walkPhase * 0.05;
+        }
+
+        // Head: Nodding like saying "yes" for panic
+        if (bonesRef.current.head) {
+          const nod = Math.sin(time * 4) * struggleIntensity * 0.15; // Gentle nodding
+          bonesRef.current.head.rotation.x = startRotations.current.head + nod;
+        }
+        // Neck: Subtle articulation
+        if (bonesRef.current.neck) {
+          const neckTwist = Math.sin(time * 6) * 0.08 * cp; // Gentle neck movement
+          bonesRef.current.neck.rotation.z = startRotations.current.neck + neckTwist;
+        }
+
+        // Ankles: Calf exercise style toe pointing (up/down)
+        if (bonesRef.current.leftAnkle) {
+          const ankleFlex = walkPhase * 0.25; // Very subtle toe pointing up/down like calf exercises
+          bonesRef.current.leftAnkle.rotation.z = startRotations.current.leftAnkle + ankleFlex;
+        }
+        if (bonesRef.current.rightAnkle) {
+          const ankleFlex = -walkPhase * 0.25; // Opposite phase for natural walking
+          bonesRef.current.rightAnkle.rotation.z = startRotations.current.rightAnkle + ankleFlex;
+        }
+
+        // Update bone matrices
+        if (rootBoneRef.current) rootBoneRef.current.updateMatrixWorld(true);
+      }
+    } else {
+      // Reset when cinematic ends
+      if (mixerRef.current) mixerRef.current.timeScale = 1;
+      startCaptured.current = false;
+    }
+  });
 
   useEffect(() => {
     // After the GLTF `scene` is available, compute a stable LOCAL-space

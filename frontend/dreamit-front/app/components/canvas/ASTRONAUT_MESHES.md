@@ -14,6 +14,50 @@ Observed meshes (from console logging)
   - `Object_106` (SkinnedMesh, material_2)
 - Misc Object3D: `_3`, `_4`, `_5` and their `_correction` nodes
 
+Bone names (from console logs):
+- GLTF_created_0_rootJoint
+- Root4_7
+- Center5_8
+- Spine_16_9
+- Spine_27_10
+- Spine_38_11
+- L_Clevicle9_12 (left clavicle/shoulder)
+- L_Arm10_13 (left upper arm)
+- L_Elbow11_14
+- L_Wrist12_15
+- L_thumb_113_16 ... (fingers)
+- L_Elbow_1_segment28_31 ... (segments)
+- L_Arm_1_segment33_36 ... (segments)
+- wire_138_41 ... (wires?)
+- neck41_44
+- head42_45
+- R_Clevicle43_46 (right clavicle)
+- R_Arm44_47 (right upper arm)
+- R_Elbow45_48
+- R_Wrist46_49
+- R_thumb_147_50 ... (fingers)
+- R_Elbow_1_segment62_65 ... (segments)
+- R_Arm_1_segment67_70 ... (segments)
+- necklace_172_75 ... (necklace)
+- bagPack76_79
+- L_bagPackHandle77_80
+- R_bagPackHandle78_81
+- L_accessories79_82
+- R_accessories80_83
+- Hip81_84
+- L_Thigh82_85
+- L_Knee83_86
+- L_Ankle84_87
+- L_Toe85_88
+- L_Toe_End86_89
+- L_Knee_spo87_90
+- R_Thigh88_91
+- R_Knee89_92
+- R_Ankle90_93
+- R_Toe91_94
+- R_Toe_End92_95
+- R_Knee_spo93_96
+
 Likely visor culprits
 - `Object_99` and `Object_100` are the primary suspects (large SkinnedMesh near the head)
 - `Object_103` / `Object_106` are additional visible SkinnedMesh parts worth checking
