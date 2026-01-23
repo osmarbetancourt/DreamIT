@@ -386,6 +386,39 @@ export default function Astronaut({
       // if override cleared, reset lastAppliedOverrideRef so future overrides re-apply
       if (overrideVal == null && lastAppliedOverrideRef.current != null) lastAppliedOverrideRef.current = null;
     } catch (e) {}
+    // Cinematic override: mimic scroll shrink - shrink to 0 and move off screen
+    try {
+      const cinematic = useCinematicStore.getState();
+      const isLocked = cinematic.isLocked;
+      const cp = Math.max(0, Math.min(1, cinematic.cinematicProgress || 0));
+      if (isLocked && cp > 0) {
+        const suck = cp; // linear easing for faster shrink
+
+        // Use the final scroll baseline as starting point
+        const baselineLocalY = (typeof parentY === 'number' && typeof targetGlobalY === 'number') ? (targetGlobalY - parentY) : (baseY);
+
+        // Target: move to global Y=-1.5
+        const offScreenLocalY = -1.5 - (parentY || 0); // local Y for global -1.5
+        group.current.position.y = THREE.MathUtils.lerp(baselineLocalY, offScreenLocalY, suck);
+
+        // Add wormhole drift to sync movement (more X movement)
+        const t = state.clock.elapsedTime;
+        const driftX = Math.sin(t * 1.5) * 1.5; // increased for more left-right
+        const driftY = Math.cos(t * 1.3) * 0.5; // subtle up-down
+        group.current.position.x += driftX;
+        group.current.position.y += driftY;
+
+        // Shrink from final scroll scale to zero
+        try {
+          const startShrunkScale = typeof scale === 'number' ? scale : 1;
+          const finalS = THREE.MathUtils.lerp(startShrunkScale, 0, suck);
+          group.current.scale.set(finalS, finalS, finalS);
+        } catch (e) {}
+
+        // No rotation/tumble
+      }
+    } catch (e) {}
+
     group.current.position.x = position[0];
     group.current.position.z = position[2];
     // Only zero X rotation when autonomous tumble is NOT active
@@ -397,7 +430,7 @@ export default function Astronaut({
     // Apply scroll-driven rotation only when shrink has completed (manualRotateRef set)
     try {
       // Only apply rotation after shrink has fully completed (manualRotateRef === true).
-      if (manualRotateRef.current) {
+      if (manualRotateRef.current && cinematicProgressNow <= 0) {
         // Use signed rotation input as a velocity command so sustained scrolling
         // results in even angular speed. `rotationRef.current` is -1..1 (signed).
         const signed = rotationRef.current || 0; // -1..1
@@ -418,7 +451,7 @@ export default function Astronaut({
       }
       // AUTONOMOUS TUMBLE: start slow tumble & vortex translation when cinematic begins
       const cinematicProgress = useCinematicStore.getState().cinematicProgress || 0;
-      if (!manualRotateRef.current && cinematicProgress > 0 && !preventTumbleRef.current) {
+      if (false && !manualRotateRef.current && cinematicProgress > 0 && !preventTumbleRef.current) {
         // Frontflip / backflip style: rotate primarily around X (pitch)
         // Use the inner pivot so the outer `group` world position stays fixed
         // and the model rotates around its geometric center (pivot + model offset).
@@ -467,16 +500,18 @@ export default function Astronaut({
           // we can skip per-frame centroid compensation which chases animated
           // bbox changes and caused the previous drift. Otherwise run compensation.
           if (!rootBoneRef.current && modelRef.current && initialDesiredWorldCenterRef.current) {
-            const curBox = new THREE.Box3().setFromObject(modelRef.current);
+            const curBox = new THREE.Box3().setFromObject(modelRef.current!);
             const curCenter = curBox.getCenter(new THREE.Vector3());
-            const desired = initialDesiredWorldCenterRef.current;
+            const desired = initialDesiredWorldCenterRef.current!;
             const dx = desired.x - curCenter.x;
             const dz = desired.z - curCenter.z;
             // Debug: store centers for optional helpers
             try {
               debugDesiredCenterRef.current = [desired.x, desired.y, desired.z];
               debugCurrentCenterRef.current = [curCenter.x, curCenter.y, curCenter.z];
-              debugAstronautPosRef.current = [group.current.position.x, group.current.position.y, group.current.position.z];
+              if (group.current) {
+                debugAstronautPosRef.current = [group.current.position.x, group.current.position.y, group.current.position.z];
+              }
             } catch (e) {}
 
             // Apply compensation only on X/Z so vertical motion remains driven by shrink/bob
@@ -1029,14 +1064,32 @@ export default function Astronaut({
 
         const dx = desired.x - modelWorldCenter.x;
         const dz = desired.z - modelWorldCenter.z;
-        const dy = desired.y - modelWorldCenter.y;
+
+        // Compute Y offset in the group's LOCAL space to avoid mixing world/local
+        // coordinates which caused downward drift/stutter during cinematic shrink.
+        let localDy = 0;
+        try {
+          if (group.current) {
+            const worldDesired = desired.clone();
+            const worldCenter = modelWorldCenter.clone();
+            // transform both points into the group's local space
+            group.current.worldToLocal(worldDesired);
+            group.current.worldToLocal(worldCenter);
+            localDy = worldDesired.y - worldCenter.y;
+            // clamp to a conservative range to avoid huge jumps from bad geometry
+            const MAX_LOCAL_DY = 3;
+            localDy = Math.max(-MAX_LOCAL_DY, Math.min(MAX_LOCAL_DY, localDy));
+          }
+        } catch (e) {
+          localDy = (desired.y - modelWorldCenter.y) || 0;
+        }
 
         // apply immediate snap on X/Z in group local space (scene has no parent rotation/scale)
         if (group.current) {
           group.current.position.x += dx;
           group.current.position.z += dz;
-          // persist a Y offset until shrink completes so vertical alignment stays correct
-          try { pivotYOffsetRef.current = (pivotYOffsetRef.current || 0) + dy; } catch (e) {}
+          // persist a LOCAL-space Y offset until shrink completes so vertical alignment stays correct
+          try { pivotYOffsetRef.current = (pivotYOffsetRef.current || 0) + localDy; } catch (e) {}
         }
 
         // log removed: pivot-snap debug

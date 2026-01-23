@@ -198,8 +198,8 @@ export default function Wormhole({
     mat.uniforms.uColorB.value.set(colorB);
 
     const t = state.clock.elapsedTime;
-    const driftX = Math.sin(t * 1.5) * 1.5;
-    const driftY = Math.cos(t * 1.3) * 1.3;
+    const driftX = Math.sin(t * 1.5) * 1.5; // more left-right movement
+    const driftY = Math.cos(t * 1.3) * 0.5; // subtle up-down
 
     const posX = initialPos.current.x + driftX;
     const posY = initialPos.current.y + driftY;

@@ -161,9 +161,10 @@ export default function JumpScroller() {
     function poll() {
       const state = useCinematicStore.getState();
       if (!state.isLocked) return;
-      const prog = Math.max(0, Math.min(1, state.cinematicProgress || 0));
-      // Map cinematicProgress -> astronaut jumpProgress directly
-      window.dispatchEvent(new CustomEvent('dreamit:jumpProgress', { detail: { progress: prog } }));
+      // FIX: Hold astronaut at final scroll position while cinematic drives the
+      // shrink independently. Emit progress=1 so the canvas keeps the astronaut
+      // at the expected landing spot and doesn't jump back to the top.
+      window.dispatchEvent(new CustomEvent('dreamit:jumpProgress', { detail: { progress: 1 } }));
       // While locked, freeze rotation input by sending neutral rotation
       window.dispatchEvent(new CustomEvent('dreamit:rotationProgress', { detail: { progress: 0.5, progressSigned: 0 } }));
       rafId = requestAnimationFrame(poll);
