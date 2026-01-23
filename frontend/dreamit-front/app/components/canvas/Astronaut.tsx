@@ -51,7 +51,7 @@ export default function Astronaut({
   const boneBaseQuat = useRef<Record<string, THREE.Quaternion>>({});
   const rootBoneRef = useRef<any>(null);
   const skinnedMeshRef = useRef<any>(null);
-  const startRotations = useRef<{[key: string]: number}>({leftArm: 0, rightArm: 0, leftElbow: 0, rightElbow: 0, leftThigh: 0, rightThigh: 0, leftKnee: 0, rightKnee: 0, rightWrist: 0, hip: 0, neck: 0, spine: 0, head: 0, leftAnkle: 0, rightAnkle: 0});
+  const startRotations = useRef<{[key: string]: number}>({leftArm: 0, rightArm: 0, leftElbow: 0, rightElbow: 0, leftThigh: 0, rightThigh: 0, leftKnee: 0, rightKnee: 0, rightWrist: 0, leftWrist: 0, leftThumb: 0, rightThumb: 0, leftIndex: 0, rightIndex: 0, leftMiddle: 0, rightMiddle: 0, leftRing: 0, rightRing: 0, leftPinky: 0, rightPinky: 0, hip: 0, neck: 0, spine: 0, head: 0, leftAnkle: 0, rightAnkle: 0});
   const startSpineX = useRef(0);
   const startCaptured = useRef(false);
   const actionRef = useRef<any>(null);
@@ -844,6 +844,50 @@ export default function Astronaut({
           bonesRef.current.rightWrist = child;
           boneBaseQuat.current.rightWrist = child.quaternion.clone();
         }
+        if (!bonesRef.current.leftWrist && /l_wrist/.test(n)) {
+          bonesRef.current.leftWrist = child;
+          boneBaseQuat.current.leftWrist = child.quaternion.clone();
+        }
+        if (!bonesRef.current.leftThumb && /l_thumb/.test(n)) {
+          bonesRef.current.leftThumb = child;
+          boneBaseQuat.current.leftThumb = child.quaternion.clone();
+        }
+        if (!bonesRef.current.rightThumb && /r_thumb/.test(n)) {
+          bonesRef.current.rightThumb = child;
+          boneBaseQuat.current.rightThumb = child.quaternion.clone();
+        }
+        if (!bonesRef.current.leftIndex && /l_index/.test(n)) {
+          bonesRef.current.leftIndex = child;
+          boneBaseQuat.current.leftIndex = child.quaternion.clone();
+        }
+        if (!bonesRef.current.rightIndex && /r_index/.test(n)) {
+          bonesRef.current.rightIndex = child;
+          boneBaseQuat.current.rightIndex = child.quaternion.clone();
+        }
+        if (!bonesRef.current.leftMiddle && /l_middle/.test(n)) {
+          bonesRef.current.leftMiddle = child;
+          boneBaseQuat.current.leftMiddle = child.quaternion.clone();
+        }
+        if (!bonesRef.current.rightMiddle && /r_middle/.test(n)) {
+          bonesRef.current.rightMiddle = child;
+          boneBaseQuat.current.rightMiddle = child.quaternion.clone();
+        }
+        if (!bonesRef.current.leftRing && /l_ring/.test(n)) {
+          bonesRef.current.leftRing = child;
+          boneBaseQuat.current.leftRing = child.quaternion.clone();
+        }
+        if (!bonesRef.current.rightRing && /r_ring/.test(n)) {
+          bonesRef.current.rightRing = child;
+          boneBaseQuat.current.rightRing = child.quaternion.clone();
+        }
+        if (!bonesRef.current.leftPinky && /l_pinky|l_pink/.test(n)) {
+          bonesRef.current.leftPinky = child;
+          boneBaseQuat.current.leftPinky = child.quaternion.clone();
+        }
+        if (!bonesRef.current.rightPinky && /r_pinky|r_pink/.test(n)) {
+          bonesRef.current.rightPinky = child;
+          boneBaseQuat.current.rightPinky = child.quaternion.clone();
+        }
         if (!bonesRef.current.head && /head|head_/.test(n)) {
           bonesRef.current.head = child;
           boneBaseQuat.current.head = child.quaternion.clone();
@@ -1078,6 +1122,17 @@ export default function Astronaut({
         if (bonesRef.current.hip) startRotations.current.hip = bonesRef.current.hip.rotation.y;
         if (bonesRef.current.neck) startRotations.current.neck = bonesRef.current.neck.rotation.z;
         if (bonesRef.current.rightWrist) startRotations.current.rightWrist = bonesRef.current.rightWrist.rotation.z;
+        if (bonesRef.current.leftWrist) startRotations.current.leftWrist = bonesRef.current.leftWrist.rotation.z;
+        if (bonesRef.current.leftThumb) startRotations.current.leftThumb = bonesRef.current.leftThumb.rotation.z;
+        if (bonesRef.current.rightThumb) startRotations.current.rightThumb = bonesRef.current.rightThumb.rotation.z;
+        if (bonesRef.current.leftIndex) startRotations.current.leftIndex = bonesRef.current.leftIndex.rotation.z;
+        if (bonesRef.current.rightIndex) startRotations.current.rightIndex = bonesRef.current.rightIndex.rotation.z;
+        if (bonesRef.current.leftMiddle) startRotations.current.leftMiddle = bonesRef.current.leftMiddle.rotation.z;
+        if (bonesRef.current.rightMiddle) startRotations.current.rightMiddle = bonesRef.current.rightMiddle.rotation.z;
+        if (bonesRef.current.leftRing) startRotations.current.leftRing = bonesRef.current.leftRing.rotation.z;
+        if (bonesRef.current.rightRing) startRotations.current.rightRing = bonesRef.current.rightRing.rotation.z;
+        if (bonesRef.current.leftPinky) startRotations.current.leftPinky = bonesRef.current.leftPinky.rotation.z;
+        if (bonesRef.current.rightPinky) startRotations.current.rightPinky = bonesRef.current.rightPinky.rotation.z;
         if (bonesRef.current.spine) startRotations.current.spine = bonesRef.current.spine.rotation.y;
         if (bonesRef.current.spine) startSpineX.current = bonesRef.current.spine.rotation.x;
         if (bonesRef.current.head) startRotations.current.head = bonesRef.current.head.rotation.x;
@@ -1162,6 +1217,66 @@ export default function Astronaut({
         if (bonesRef.current.rightAnkle) {
           const ankleFlex = -walkPhase * 0.25; // Opposite phase for natural walking
           bonesRef.current.rightAnkle.rotation.z = startRotations.current.rightAnkle + ankleFlex;
+        }
+
+        // Wrists: Grasping/reaching gestures
+        if (bonesRef.current.leftWrist) {
+          const wristTwist = Math.sin(time * 7) * 0.16 * cp; // Subtle grasping twist
+          bonesRef.current.leftWrist.rotation.z = startRotations.current.leftWrist + wristTwist;
+        }
+        if (bonesRef.current.rightWrist) {
+          const wristTwist = Math.sin(time * 7 + Math.PI * 0.5) * 0.16 * cp; // Opposite phase for natural reaching
+          bonesRef.current.rightWrist.rotation.z = startRotations.current.rightWrist + wristTwist;
+        }
+
+        // Thumbs: Curling inward for fist clenching
+        if (bonesRef.current.leftThumb) {
+          const thumbCurl = Math.sin(time * 9) * 0.6 * cp; // Slower thumb curling toward palm
+          bonesRef.current.leftThumb.rotation.z = startRotations.current.leftThumb + thumbCurl;
+        }
+        if (bonesRef.current.rightThumb) {
+          const thumbCurl = Math.sin(time * 9 + Math.PI * 0.3) * 0.6 * cp; // Slower and stronger with phase offset
+          bonesRef.current.rightThumb.rotation.z = startRotations.current.rightThumb + thumbCurl;
+        }
+
+        // Index fingers: Curling for fist formation
+        if (bonesRef.current.leftIndex) {
+          const indexCurl = Math.sin(time * 9) * 0.5 * cp; // Slower index finger curling
+          bonesRef.current.leftIndex.rotation.z = startRotations.current.leftIndex + indexCurl;
+        }
+        if (bonesRef.current.rightIndex) {
+          const indexCurl = Math.sin(time * 9 + Math.PI * 0.3) * 0.5 * cp; // Slower with matching phase
+          bonesRef.current.rightIndex.rotation.z = startRotations.current.rightIndex + indexCurl;
+        }
+
+        // Middle fingers: Curling for complete fist
+        if (bonesRef.current.leftMiddle) {
+          const middleCurl = Math.sin(time * 9) * 0.45 * cp; // Slower middle finger curling
+          bonesRef.current.leftMiddle.rotation.z = startRotations.current.leftMiddle + middleCurl;
+        }
+        if (bonesRef.current.rightMiddle) {
+          const middleCurl = Math.sin(time * 9 + Math.PI * 0.3) * 0.45 * cp; // Slower matching phase
+          bonesRef.current.rightMiddle.rotation.z = startRotations.current.rightMiddle + middleCurl;
+        }
+
+        // Ring fingers: Curling for complete fist
+        if (bonesRef.current.leftRing) {
+          const ringCurl = Math.sin(time * 9) * 0.4 * cp; // Slower ring finger curling
+          bonesRef.current.leftRing.rotation.z = startRotations.current.leftRing + ringCurl;
+        }
+        if (bonesRef.current.rightRing) {
+          const ringCurl = Math.sin(time * 9 + Math.PI * 0.3) * 0.4 * cp; // Slower matching phase
+          bonesRef.current.rightRing.rotation.z = startRotations.current.rightRing + ringCurl;
+        }
+
+        // Pinky fingers: Curling for complete fist
+        if (bonesRef.current.leftPinky) {
+          const pinkyCurl = Math.sin(time * 9) * 0.35 * cp; // Slower pinky finger curling
+          bonesRef.current.leftPinky.rotation.z = startRotations.current.leftPinky + pinkyCurl;
+        }
+        if (bonesRef.current.rightPinky) {
+          const pinkyCurl = Math.sin(time * 9 + Math.PI * 0.3) * 0.35 * cp; // Slower matching phase
+          bonesRef.current.rightPinky.rotation.z = startRotations.current.rightPinky + pinkyCurl;
         }
 
         // Update bone matrices

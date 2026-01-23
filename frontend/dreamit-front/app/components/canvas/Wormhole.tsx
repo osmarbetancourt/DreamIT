@@ -1,6 +1,5 @@
 "use client";
 import React, { useRef, useEffect, useState } from "react";
-import WormholeMandala from "./WormholeMandala";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import useWormholeEffectsStore from '../../logic/useWormholeEffectsStore';
@@ -124,22 +123,14 @@ export default function Wormhole({
 }: Props) {
   const meshRef = useRef<THREE.Mesh>(null!);
   const materialRef = useRef<THREE.ShaderMaterial>(null!);
-  const mandalaOpacityRef = useRef(0);
   const [expired, setExpired] = useState(false);
   const initialPos = useRef(new THREE.Vector3(...position));
-  const mandalaGroupRef = useRef<THREE.Group>(null!);
 
   useEffect(() => {
     if (visible && lifetime > 0) {
       setExpired(false);
 
       const t = setTimeout(() => {
-        // hide mandala group immediately
-        if (mandalaGroupRef.current) mandalaGroupRef.current.visible = false;
-
-        // zero mandala opacity so its instanced material becomes fully transparent next frame
-        mandalaOpacityRef.current = 0;
-
         // zero cylinder shader opacity
         if (materialRef.current && materialRef.current.uniforms && materialRef.current.uniforms.uOpacity) {
           // @ts-ignore
@@ -167,8 +158,6 @@ export default function Wormhole({
         useWormholeEffectsStore.getState().setIntensity(0);
         useWormholeEffectsStore.getState().setEnabled(false);
       } catch (e) {}
-      mandalaOpacityRef.current = 0;
-      if (mandalaGroupRef.current) mandalaGroupRef.current.visible = false;
       if (materialRef.current && materialRef.current.uniforms && materialRef.current.uniforms.uOpacity) {
         // @ts-ignore
         materialRef.current.uniforms.uOpacity.value = 0;
@@ -186,9 +175,7 @@ export default function Wormhole({
     // shader cylinder opacity lerp (keeps cylinder animate while visible)
     mat.uniforms.uOpacity.value = THREE.MathUtils.lerp(mat.uniforms.uOpacity.value, opacity, 0.1);
 
-    // Mandala opacity target and update (mandalaOpacityRef is used by mandala)
-    const mandalaTarget = Math.max(0, (opacity - 0.2) * 1.25);
-    mandalaOpacityRef.current = THREE.MathUtils.lerp(mandalaOpacityRef.current, mandalaTarget, 0.1);
+    // (mandala removed) keep other updates
 
     mat.uniforms.uTime.value += delta;
     mat.uniforms.uSpeed.value = THREE.MathUtils.lerp(mat.uniforms.uSpeed.value, speed, 0.1);
@@ -210,46 +197,22 @@ export default function Wormhole({
       meshRef.current.rotation.y += delta * (0.2 + speed * 0.8);
     }
 
-    if (mandalaGroupRef.current) {
-      mandalaGroupRef.current.position.set(posX, posY, posZ);
-    }
+    // no mandala group to update
   });
 
   if (expired || (opacity < 0.01 && speed < 0.01)) return null;
 
   return (
-    <>
-      <group ref={mandalaGroupRef}>
-        <WormholeMandala
-          opacityRef={mandalaOpacityRef}
-          scale={baseRadius * 0.98}
-          useScreenHole={true}
-          screenHoleScale={1.0}
-          holeInnerScale={0.995}
-          fadeLerp={0.10}
-          minInnerRow={0}
-          emissiveIntensity={emissiveIntensity}
-          rotationSpeed={Math.max(0.3, speed * 1.5)}
-          tileSpinSpeed={tileSpinSpeed}
-          tileSpinJitter={tileSpinJitter}
-          color={colorA}
-          colorB={colorB}
-          renderOrder={1001}
-          position={[0, 0, 0]}
-        />
-      </group>
-
-      <mesh ref={meshRef} rotation={[Math.PI / 2, 0, 0]} renderOrder={1000}>
-        <cylinderGeometry args={[baseRadius, baseRadius, 40, 64, 20, true]} />
-        <shaderMaterial
-          ref={materialRef}
-          args={[ColorShiftWormholeShader]}
-          transparent
-          side={THREE.DoubleSide}
-          depthWrite={false}
-          blending={THREE.AdditiveBlending}
-        />
-      </mesh>
-    </>
+    <mesh ref={meshRef} rotation={[Math.PI / 2, 0, 0]} renderOrder={1000}>
+      <cylinderGeometry args={[baseRadius, baseRadius, 40, 64, 20, true]} />
+      <shaderMaterial
+        ref={materialRef}
+        args={[ColorShiftWormholeShader]}
+        transparent
+        side={THREE.DoubleSide}
+        depthWrite={false}
+        blending={THREE.AdditiveBlending}
+      />
+    </mesh>
   );
 }
