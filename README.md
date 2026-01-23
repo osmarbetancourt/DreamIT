@@ -10,7 +10,7 @@
 ![Three.js](https://img.shields.io/badge/Three.js-0.182.0-049EF4?style=for-the-badge&logo=three.js&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.0-3178C6?style=for-the-badge&logo=typescript&logoColor=white)
 
-[![Build Status](https://img.shields.io/github/actions/workflow/status/osmarbetancourt/DreamIT/ci.yml?branch=main&style=for-the-badge)](https://github.com/osmarbetancourt/DreamIT/actions)
+[![Build Status](https://img.shields.io/github/actions/workflow/status/osmarbetancourt/DreamIT/deploy.yml?branch=main&style=for-the-badge)](https://github.com/osmarbetancourt/DreamIT/actions/workflows/deploy.yml)
 [![GitHub Stars](https://img.shields.io/github/stars/osmarbetancourt/DreamIT?style=for-the-badge)](https://github.com/osmarbetancourt/DreamIT/stargazers)
 [![GitHub Issues](https://img.shields.io/github/issues/osmarbetancourt/DreamIT?style=for-the-badge)](https://github.com/osmarbetancourt/DreamIT/issues)
 [![GitHub PRs](https://img.shields.io/github/issues-pr/osmarbetancourt/DreamIT?style=for-the-badge)](https://github.com/osmarbetancourt/DreamIT/pulls)
