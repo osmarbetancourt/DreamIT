@@ -108,8 +108,8 @@ export default function Astronaut({
   // Don't mount heavy model when canvas not allowed
   if (!isCanvasAllowed) return null;
 
-  // Optimized Draco + metal-rough converted asset placed in public/
-  const glbPath = "/astronaut-draco.glb";
+  // Optimized Draco + metal-rough converted asset placed in R2
+  const glbPath = "https://dreamit.software/dreamit-page/astronaut-draco.glb";
   // load model
   const { scene, animations } = useGLTF(glbPath) as any;
   const { actions, mixer, names } = useAnimations(animations, group as any);
@@ -1563,4 +1563,4 @@ export default function Astronaut({
   );
 }
 
-useGLTF.preload("/astronaut-draco.glb");
+useGLTF.preload("https://dreamit.software/dreamit-page/astronaut-draco.glb");

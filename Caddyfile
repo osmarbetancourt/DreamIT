@@ -23,6 +23,12 @@ dreamit.software  {
 	}
 	header @short Cache-Control "public, max-age=3600, stale-while-revalidate=86400"
 
+	# 3D assets (GLB, textures) - longer cache for large files
+	@assets3d {
+		path *.glb *.ktx2 *.bin *.jpg *.jpeg *.png *.webp
+	}
+	header @assets3d Cache-Control "public, max-age=86400, stale-while-revalidate=604800"
+
 	# HTML / SSR responses: avoid aggressive browser caching. Match requests
 	# that do NOT target static file extensions and treat them as HTML pages.
 	@html {
