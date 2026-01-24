@@ -1,5 +1,6 @@
 "use client";
 import React, { useEffect, useState, useRef } from "react";
+import useDeviceStore from "../../logic/useDeviceStore";
 
 interface IntroLoaderProps {
   progress: number; // 0 to 100
@@ -123,6 +124,7 @@ export default function IntroLoader({ progress, onAnimationComplete, locale = 'e
 
       // after lift + blackHold, add final-fade to start opacity fade
       timeouts.push(window.setTimeout(() => setExitClass('lift final-fade'), liftDuration + blackHold));
+      useDeviceStore.getState().setLoaderExitComplete(true);
 
       // when all is done, finalize and notify parent exactly once
       timeouts.push(window.setTimeout(() => {

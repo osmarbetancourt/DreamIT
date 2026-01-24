@@ -6,9 +6,6 @@ import JumpScroller from '../components/dom/JumpScroller';
 import WarpOverlay from '../components/dom/WarpOverlay';
 import MobileStars from '../components/canvas/MobileStars';
 import MobileScrollNavigator from '../components/dom/MobileScrollNavigator';
-import ScrollArrow from '../components/dom/ScrollArrow';
-import { headers } from 'next/headers';
-import HomePageReset from '../components/dom/HomePageReset';
 
 interface PageProps {
   params: Promise<{ lang: 'en' | 'es' }>;

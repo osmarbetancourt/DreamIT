@@ -1,20 +1,18 @@
-"use client";
-import dynamic from "next/dynamic";
 import React from "react";
-import useDeviceStore from "../../logic/useDeviceStore";
-import { useParams } from "next/navigation";
+import { getDictionary } from '../../dictionaries/get-dictionary';
 import MobileProjectsView from "../../components/dom/MobileProjectsView";
 import MobileStars from "../../components/canvas/MobileStars";
 import MobileScrollNavigator from "../../components/dom/MobileScrollNavigator";
+import { headers } from "next/headers";
+import ClientProjectsPage from "../../components/ClientProjectsPage";
 
-const ProjectsScene = dynamic(() => import("../../components/canvas/ProjectsScene"), { ssr: false });
+interface ProjectsPageProps {
+  params: Promise<{ lang: 'en' | 'es' }>;
+}
 
-export default function ProjectsPage() {
-  const isCanvasAllowed = useDeviceStore((s) => s.isCanvasAllowed);
-  const isMobile = useDeviceStore((s) => s.isMobile);
-  const detected = useDeviceStore((s) => s.detected);
-  const params = useParams();
-  const lang = params?.lang || 'en';
+export default async function ProjectsPage({ params }: ProjectsPageProps) {
+  const { lang } = await params;
+  const dict = await getDictionary(lang);
 
   const mockProjects = [
     { id: '1', title: 'DragonLog', tagline: 'RPG System', hexColor: '#ff0000' },
@@ -22,43 +20,39 @@ export default function ProjectsPage() {
     { id: '3', title: 'Gym App', tagline: 'Fitness Tracker', hexColor: '#0000ff' },
   ];
 
-  // Wait for device detection to complete, default to mobile view while detecting
-  if (!detected) {
-    return (
-      <div className="relative min-h-screen bg-black">
-        {/* Mobile Stars Background while detecting */}
-        <MobileStars />
+  // Server-side device hinting: compute a conservative `isMobileServer` value
+  // using request headers and Client Hints where available. This value is
+  // passed to determine initial render and avoids flash during hydration.
+  const hdrs = await headers();
+  const ua = (hdrs.get('user-agent') ?? '').toString();
+  const chUaMobile = hdrs.get('sec-ch-ua-mobile');
 
-        {/* Projects Content */}
-        <MobileProjectsView projects={mockProjects} locale={lang as 'en' | 'es'} />
+  // Basic UA + Client Hints check. Defaults to conservative mobile-first
+  // rendering when uncertain.
+  const uaMobile = /Mobi|Android|iPhone|iPad|Mobile/i.test(ua) || chUaMobile === '?1';
 
-        {/* Mobile scroll navigation */}
-        <MobileScrollNavigator />
-      </div>
-    );
-  }
+  // Respect simple server-side cookie overrides if present:
+  // - `dreamit_force_enhanced=1` forces enhanced/desktop UI
+  // - `dreamit_force_mobile=1` forces mobile/fallback UI
+  const cookie = hdrs.get('cookie') ?? '';
+  const forceEnhanced = cookie.includes('dreamit_force_enhanced=1');
+  const forceMobile = cookie.includes('dreamit_force_mobile=1');
 
-  // Mobile / low-cap fallback - now with proper projects view
-  if (!isCanvasAllowed || isMobile) {
+  const isMobileServer = forceEnhanced ? false : forceMobile ? true : uaMobile;
+
+  // Initial server-rendered decision (no flash)
+  if (isMobileServer) {
     return (
       <div className="relative min-h-screen bg-black">
         {/* Mobile Stars Background */}
         <MobileStars />
 
         {/* Projects Content */}
-        <MobileProjectsView projects={mockProjects} locale={lang as 'en' | 'es'} />
-
-        {/* Mobile scroll navigation */}
-        <MobileScrollNavigator />
+        <MobileProjectsView projects={mockProjects} locale={lang} />
       </div>
     );
   }
 
-  // DESKTOP / HIGH-END:
-  // FIX: Changed 'bg-black' to 'bg-transparent' so PersistentStars (in layout) show through immediately.
-  return (
-    <div className="w-full h-screen relative bg-transparent text-white">
-      <ProjectsScene />
-    </div>
-  );
+  // Desktop initial render - will hydrate to ClientProjectsPage
+  return <ClientProjectsPage mockProjects={mockProjects} lang={lang} isMobileServer={isMobileServer} solarText={dict.hero.solarText} />;
 }

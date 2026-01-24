@@ -307,9 +307,6 @@ High-level TODO for the agent:
    - resize viewport to mobile width
    - verify no crash and graceful degradation
 
-Agent prompt (copy-paste)
-> "Read DREAMIT_ULTIMATE_BLUEPRINT.md above. Start by scaffolding the file structure. Then, implement Scene.tsx and GlassMonolith.tsx strictly following the 'Split-Engine' logic to ensure mobile performance. Use the mock data provided for the projects to test the mapping. Ensure all canvas code is dynamically imported with SSR disabled. Add an Effects.tsx postprocessing component with a mobile kill-switch. Prioritize mobile-first behavior, clamp DPR, and implement device & connection checks before enabling heavy features."
-
 ---
 
 ## 8. ACCEPTANCE CRITERIA (how reviewers will verify)

@@ -5,6 +5,10 @@ export default function ScrollArrow() {
   const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
+    // Only show on mobile devices
+    const isMobile = window.innerWidth < 768;
+    if (!isMobile) return;
+
     // Show arrow after all animations complete (4 seconds for rocket trail + text effects)
     const timer = setTimeout(() => {
       setIsVisible(true);

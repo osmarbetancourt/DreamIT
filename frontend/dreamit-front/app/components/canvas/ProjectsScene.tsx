@@ -1,10 +1,18 @@
 "use client";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useRef } from "react";
 import { Canvas } from "@react-three/fiber";
-import { Stars } from "@react-three/drei";
+import { Stars, useTexture } from "@react-three/drei";
+import { EffectComposer, Bloom, GodRays } from "@react-three/postprocessing";
 import SolarSystem from "./SolarSystem";
 import { useSearchParams, useParams } from "next/navigation";
 import useCinematicStore from "../../logic/useCinematicStore";
+import { mockPlanets } from "../../data/mockPlanets";
+import * as THREE from "three";
+
+function PreloadTextures() {
+  const texture = useTexture('/8k_sun.jpg');
+  return null;
+}
 
 export default function ProjectsScene() {
   const search = useSearchParams();
@@ -16,13 +24,23 @@ export default function ProjectsScene() {
   const [localFade, setLocalFade] = useState(0);
   const cinematicProgress = useCinematicStore((s) => s.cinematicProgress);
 
-  useEffect(() => {
-    if (warped) setVisible(true);
-  }, [warped]);
+  // Planet interaction state
+  const [hoveredPlanet, setHoveredPlanet] = useState<string | null>(null);
+  const sunRef = useRef<THREE.Mesh>(null);
 
   useEffect(() => {
     if (warped) setVisible(true);
   }, [warped]);
+
+  // Planet interaction handlers
+  const handlePlanetHover = (planetId: string, hovered: boolean) => {
+    setHoveredPlanet(hovered ? planetId : null);
+  };
+
+  const handlePlanetClick = (planetId: string) => {
+    console.log('Planet clicked:', planetId);
+    // TODO: Navigate to project details or show close-up
+  };
 
   // subtle local fade fallback when cinematicProgress is not available (direct link)
   useEffect(() => {
@@ -58,28 +76,68 @@ export default function ProjectsScene() {
   return (
     <div className="fixed inset-0 z-40">
       <Canvas gl={{ antialias: true, alpha: true }} dpr={1} camera={{ position: [0, 0, 8], fov: 45 }} style={{ background: 'transparent' }}>
+        <PreloadTextures />
         {/* Bind scene lighting to cinematic progress for seamless transition */}
-        <ambientLight intensity={0.15 + effectiveProgress * 0.45} />
-        <pointLight position={[10, 10, 10]} intensity={0.6 + effectiveProgress * 1.2} />
-        <Stars radius={100} depth={50} count={600} factor={3 * (0.6 + effectiveProgress * 0.4)} saturation={0.0 + effectiveProgress * 0.6} />
+        <ambientLight intensity={warped ? 0.6 : 0.15 + effectiveProgress * 0.45} />
+        <pointLight position={[10, 10, 10]} intensity={warped ? 1.8 : 0.6 + effectiveProgress * 1.2} />
+        <Stars 
+          radius={100} 
+          depth={50} 
+          count={600} 
+          factor={3 * (0.6 + effectiveProgress * 0.4)} 
+          saturation={0.0 + effectiveProgress * 0.6} 
+        />
 
         {/* backdrop sun removed to avoid visual duplication/flash */}
 
         {/* solar system group fades in according to cinematic progress */}
         <group position={[0, -0.5, 0]}>
-          <SolarSystem cinematicProgress={effectiveProgress} />
+          <SolarSystem
+            planets={mockPlanets}
+            scrollProgress={effectiveProgress}
+            onPlanetHover={handlePlanetHover}
+            onPlanetClick={handlePlanetClick}
+            sunRef={sunRef}
+          />
         </group>
+
+        {/* Post-processing effects for the sun */}
+        <EffectComposer>
+          <Bloom
+            intensity={1.5}
+            luminanceThreshold={0} // Changed to 0 to catch all bright pixels
+            luminanceSmoothing={0.9}
+            mipmapBlur
+          />
+          {sunRef.current && (
+            <GodRays
+              sun={sunRef.current}
+              samples={60}
+              density={0.96}
+              decay={0.92} // Updated to match example
+              weight={0.4} // Updated to match example
+              exposure={0.6} // Updated to match example
+              clampMax={1} // Added for artifact prevention
+              blur={true} // Added for smoothing
+            />
+          )}
+        </EffectComposer>
       </Canvas>
 
-      {/* Overlay label */}
+      {/* Overlay UI */}
       <div
         aria-hidden
-        className="pointer-events-none fixed inset-0 flex items-end justify-center pb-12 z-50"
+        className="pointer-events-none fixed inset-0 flex flex-col items-center justify-center z-50"
         style={{ opacity: solarOpacity }}
       >
-        <div className="bg-black/60 backdrop-blur-sm px-5 py-3 rounded-md text-center text-white text-lg">
-          {label}
-        </div>
+        {/* Hover info */}
+        {hoveredPlanet && (
+          <div className="absolute top-8 left-1/2 transform -translate-x-1/2 bg-black/80 backdrop-blur-sm px-4 py-2 rounded-md">
+            <div className="text-white text-sm">
+              {mockPlanets.find(p => p.id === hoveredPlanet)?.name}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

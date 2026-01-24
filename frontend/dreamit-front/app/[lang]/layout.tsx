@@ -68,8 +68,8 @@ async function getMetaForLang(lang: string): Promise<Metadata> {
   } as Metadata;
 }
 
-export async function generateMetadata({ params }: { params: { lang: string } }): Promise<Metadata> {
-  const { lang } = params;
+export async function generateMetadata({ params }: { params: Promise<{ lang: string }> }): Promise<Metadata> {
+  const { lang } = await params;
   return getMetaForLang(lang || 'en');
 }
 

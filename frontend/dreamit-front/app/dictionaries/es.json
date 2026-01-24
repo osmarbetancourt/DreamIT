@@ -2,6 +2,7 @@
   "hero": {
     "title": "Bienvenido a DreamIT",
     "subtitle": "Construyendo software para el futuro",
-    "cta": "Comenzar"
+    "cta": "Comenzar",
+    "solarText": "Hace mucho tiempo en una galaxia digital muy, muy lejana...\n\nLa agencia DreamIT aprovecha el poder del SISTEMA SOLAR\npara iluminar la web con tecnologías de vanguardia...\n\nImpulsado por RUST para el rendimiento, NEXT.JS para la reactividad,\ny THREE.JS para experiencias 3D inmersivas...\n\nDreamIT da vida a tus visiones en la vasta extensión del código..."
   }
 }

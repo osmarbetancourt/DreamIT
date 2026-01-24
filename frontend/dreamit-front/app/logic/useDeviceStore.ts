@@ -6,7 +6,9 @@ type DeviceState = {
   detected: boolean;        // True after detect() ran
   saveData: boolean;        // navigator.connection.saveData
   prefersReducedMotion: boolean; // prefers-reduced-motion
+  loaderExitComplete: boolean; // True after intro loader finishes exiting
   detect: () => void;
+  setLoaderExitComplete: (complete: boolean) => void;
 };
 
 export const useDeviceStore = create<DeviceState>((set) => ({
@@ -15,6 +17,7 @@ export const useDeviceStore = create<DeviceState>((set) => ({
   saveData: false,
   prefersReducedMotion: false,
   detected: false,
+  loaderExitComplete: false,
   detect: () => {
     if (typeof window === "undefined") return;
     // Gather signals
@@ -64,6 +67,7 @@ export const useDeviceStore = create<DeviceState>((set) => ({
       detected: true,
     });
   },
+  setLoaderExitComplete: (complete: boolean) => set({ loaderExitComplete: complete }),
 }));
 
 export default useDeviceStore;

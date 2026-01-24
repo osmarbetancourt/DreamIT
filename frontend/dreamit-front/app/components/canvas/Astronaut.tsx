@@ -1,6 +1,6 @@
 "use client";
 import React, { useRef, useEffect, useState, useMemo } from "react";
-import { useGLTF, useAnimations } from "@react-three/drei";
+import { useGLTF, useAnimations, useTexture } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import useCinematicStore from '../../logic/useCinematicStore';
 import * as THREE from "three";
@@ -40,6 +40,8 @@ export default function Astronaut({
   logMeshNames = false,
   onHaloComputed,
 }: Props) {
+  // Preload sun texture for next scene
+  // const sunTexture = useTexture('/8k_sun.jpg');
   const { isCanvasAllowed, prefersReducedMotion, saveData } = useDeviceStore();
   const group = useRef<THREE.Group>(null!);
   const pivotRef = useRef<THREE.Group>(null!);
