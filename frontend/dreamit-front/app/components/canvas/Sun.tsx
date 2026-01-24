@@ -119,24 +119,13 @@ export default function Sun({ scrollProgress, sunRef: externalSunRef }: SunProps
               hasLogged.current = true;
             }
 
-            // Both layers move at same speed for concentric waves, compensated for position
-            const waveSpeed = 0.05;
-            const [px, py, pz] = currentPosition.current;
+            // DISABLED: Frequent noise updates for performance - static noise instead
+            // Both layers set to static offsets
             if (noiseLayers.length > 0) {
-              const offset1 = [
-                currentTime * waveSpeed - px * 0.1,
-                currentTime * waveSpeed - py * 0.1,
-                currentTime * waveSpeed - pz * 0.1
-              ];
-              noiseLayers[0].offset.set(offset1[0], offset1[1], offset1[2]);
+              noiseLayers[0].offset.set(0, 0, 0);
             }
             if (noiseLayers.length > 1) {
-              const offset2 = [
-                currentTime * waveSpeed * 0.7 - px * 0.1, // Slightly different speed for wave effect
-                currentTime * waveSpeed * 0.7 - py * 0.1,
-                currentTime * waveSpeed * 0.7 - pz * 0.1
-              ];
-              noiseLayers[1].offset.set(offset2[0], offset2[1], offset2[2]);
+              noiseLayers[1].offset.set(0, 0, 0);
             }
           }
         }
@@ -156,7 +145,7 @@ export default function Sun({ scrollProgress, sunRef: externalSunRef }: SunProps
       <pointLight position={[0, 0, 0]} intensity={0.8} color="#FF8C00" distance={10} decay={2} />
       {/* LAYER 1: The Realistic Core (NASA Texture) */}
       <mesh ref={sunRef}>
-        <sphereGeometry args={[0.8, 64, 32]} />
+        <sphereGeometry args={[0.8, 48, 24]} />
         <meshStandardMaterial 
           map={sunMap}
           emissiveMap={sunMap}
@@ -164,13 +153,14 @@ export default function Sun({ scrollProgress, sunRef: externalSunRef }: SunProps
           emissiveIntensity={2}
           toneMapped={false}
           displacementMap={sunMap}
-          displacementScale={0.05} 
+          displacementScale={0.03} 
         />
       </mesh>
 
-      {/* LAYER 2: The Moving Atmosphere */}
+      {/* LAYER 2: The Moving Atmosphere - COMMENTED OUT FOR PERFORMANCE TEST */}
+      {/*
       <mesh ref={atmosphereRef} scale={[1.02, 1.02, 1.02]}>
-        <sphereGeometry args={[0.8, 64, 32]} />
+        <sphereGeometry args={[0.8, 32, 16]} />
         <LayerMaterial 
           transparent 
           opacity={0.4}
@@ -188,6 +178,7 @@ export default function Sun({ scrollProgress, sunRef: externalSunRef }: SunProps
           />
         </LayerMaterial>
       </mesh>
+      */}
     </group>
   );
 }
