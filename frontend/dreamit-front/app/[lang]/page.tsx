@@ -1,4 +1,5 @@
 import React from 'react';
+import { headers } from 'next/headers';
 import { getDictionary } from '../dictionaries/get-dictionary';
 import SceneBootstrap from '../components/dom/SceneBootstrap';
 import HeroOverlay from '../components/dom/HeroOverlay';
