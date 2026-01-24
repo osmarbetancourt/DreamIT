@@ -3,7 +3,7 @@ import React, { useRef, useMemo } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import { MeshTransmissionMaterial, Sphere, Ring, Icosahedron, Torus } from "@react-three/drei";
 import * as THREE from "three";
-import { PlanetConfig, PlanetType } from "../../types/planet";
+import { PlanetConfig, PlanetType } from "@/types/planet";
 
 interface PlanetProps {
   config: PlanetConfig;
