@@ -22,7 +22,7 @@ export default function SolarSystem({
   return (
     <group>
       {/* Shader-based Sun */}
-      <Sun scrollProgress={scrollProgress} sunRef={sunRef} />
+      <Sun sunRef={sunRef} />
 
       {/* Planets temporarily disabled */}
       {/* {revealedPlanets.map((planetConfig) => (
