@@ -6,6 +6,7 @@ import JumpScroller from '../components/dom/JumpScroller';
 import WarpOverlay from '../components/dom/WarpOverlay';
 import MobileStars from '../components/canvas/MobileStars';
 import MobileScrollNavigator from '../components/dom/MobileScrollNavigator';
+import ScrollArrow from '../components/dom/ScrollArrow';
 import { headers } from 'next/headers';
 import HomePageReset from '../components/dom/HomePageReset';
 
@@ -70,6 +71,8 @@ export default async function Home({ params }: PageProps) {
       <JumpScroller />
       {/* Mobile scroll navigator for touch devices */}
       <MobileScrollNavigator />
+      {/* Scroll arrow indicator */}
+      <ScrollArrow />
 
     </main>
   );
