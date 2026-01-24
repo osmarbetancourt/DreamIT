@@ -40,6 +40,10 @@ export default function SceneBootstrap({ projects = [], serverIsMobile, locale =
     if (!isCanvasAllowed) {
       // Don't mount heavy scene on low-capability devices
       setMountRequested(false);
+      // INSTANT LOADING for mobile - skip the loading screen entirely
+      setLoadingFinished(true);
+      // Ensure content is visible by adding the loaded class
+      document.documentElement.classList.add('dreamit-loaded');
       return;
     }
 
@@ -63,31 +67,23 @@ export default function SceneBootstrap({ projects = [], serverIsMobile, locale =
   useEffect(() => {
     if (!mountRequested) return;
 
-    let interval: NodeJS.Timeout;
-
     // Check if we need to simulate
     // If canvas is disabled (mobile low power), OR if we just want to ensure it finishes:
     if (!isCanvasAllowed || isMobile) {
-      // Fast simulation for mobile
-      interval = setInterval(() => {
-        setProgress((prev) => {
-          if (prev >= 100) {
-            clearInterval(interval);
-            return 100;
-          }
-          return prev + 5; // +5% every 50ms = 1 sec load time
-        });
-      }, 50);
-    } else {
-      // Even on desktop, if assets are cached, useProgress might stay at 0 or 100 instantly.
-      // We set a safety timeout to force completion if real loader is stuck.
-      const safety = setTimeout(() => {
-        if (progress < 100) setProgress(100);
-      }, 8000); // 8s max wait
-      return () => clearTimeout(safety);
+      // INSTANT LOADING for mobile - skip the loading screen entirely
+      setProgress(100);
+      setLoadingFinished(true);
+      return; // Exit early, no simulation needed
     }
 
-    return () => clearInterval(interval);
+    // Desktop simulation (unchanged)
+    // ... existing desktop logic ...
+    // Even on desktop, if assets are cached, useProgress might stay at 0 or 100 instantly.
+    // We set a safety timeout to force completion if real loader is stuck.
+    const safety = setTimeout(() => {
+      if (progress < 100) setProgress(100);
+    }, 8000); // 8s max wait
+    return () => clearTimeout(safety);
   }, [mountRequested, isCanvasAllowed, isMobile, progress]);
 
   const handleAnimationComplete = useCallback(() => {
@@ -118,7 +114,8 @@ export default function SceneBootstrap({ projects = [], serverIsMobile, locale =
       )}
 
       {/* FULL SCREEN LOADER: Stays on top until loadingFinished is true */}
-      {!loadingFinished && (
+      {/* Skip loader entirely for mobile devices */}
+      {!loadingFinished && isCanvasAllowed && detected && (
         <IntroLoader 
             progress={progress} 
             onAnimationComplete={handleAnimationComplete} 

@@ -4,6 +4,9 @@ import SceneBootstrap from '../components/dom/SceneBootstrap';
 import HeroOverlay from '../components/dom/HeroOverlay';
 import JumpScroller from '../components/dom/JumpScroller';
 import WarpOverlay from '../components/dom/WarpOverlay';
+import MobileHeroContent from '../components/dom/MobileHeroContent';
+import MobileStars from '../components/canvas/MobileStars';
+import MobileScrollNavigator from '../components/dom/MobileScrollNavigator';
 import { headers } from 'next/headers';
 
 interface PageProps {
@@ -44,20 +47,31 @@ export default async function Home({ params }: PageProps) {
   return (
     // FULL SCREEN CONTAINER
     <main className="relative w-full h-screen overflow-hidden bg-black">
-      
+
+      {/* Mobile Stars Background (only on mobile) */}
+      {isMobileServer && <MobileStars />}
+
       {/* 1. The 3D Scene Manager (Background) */}
       <SceneBootstrap projects={mockProjects} serverIsMobile={isMobileServer} locale={lang} />
 
       {/* 2. The Text Overlay (Foreground) */}
-      <HeroOverlay 
-        title={dict.hero.title} 
-        subtitle={dict.hero.subtitle} 
+      <HeroOverlay
+        title={dict.hero.title}
+        subtitle={dict.hero.subtitle}
       />
+
+      {/* 3. Mobile-Specific Content (only on mobile) */}
+      {isMobileServer && (
+        <MobileHeroContent locale={lang} />
+      )}
+
       {/* Full-screen mask used to hide route swap during cinematic */}
       <WarpOverlay />
       {/* Desktop wheel-driven scroller for the jump prototype */}
       <JumpScroller />
-      
+      {/* Mobile scroll navigator for touch devices */}
+      <MobileScrollNavigator />
+
     </main>
   );
 }
