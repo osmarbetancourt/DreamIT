@@ -21,7 +21,7 @@ export default function Sun({ scrollProgress, sunRef: externalSunRef }: SunProps
   const originalPositions = useRef<Float32Array | null>(null);
 
   // Load NASA texture
-  const sunMap = useTexture('/8k_sun.jpg');
+  const sunMap = useTexture('/2k_sun.jpg');
 
   // 🎯 FINE-TUNE THIS VALUE: Controls how fast the sun rises (in seconds)
   const RISE_DURATION = 5; // Slower, more cinematic rise
