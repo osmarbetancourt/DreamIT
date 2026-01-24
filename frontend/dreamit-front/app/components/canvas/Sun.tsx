@@ -94,12 +94,25 @@ export default function Sun({ scrollProgress, sunRef: externalSunRef }: SunProps
     return 1.0;
   }, []);
 
-  const lastLogTime = useRef(0);
+  const startColor = useMemo(() => new THREE.Color("#FF8C00"), []); // Orange
+  const endColor = useMemo(() => new THREE.Color("#FFFF00"), []); // Yellow
 
   useFrame((state, delta) => {
     const currentTime = state.clock.getElapsedTime();
     if (sunRef.current) {
-      // Gentle sun rotation only on Y axis, reduced speed
+      // Gentle sun rotation only on Y axis, red
+
+      // Emissive pulsing: oscillate intensity between 1.5 and 1.9 over 8 seconds
+      const pulsePeriod = 8; // seconds
+      const pulse = 1.7 + 0.2 * Math.sin((currentTime * 2 * Math.PI) / pulsePeriod);
+      (sunRef.current.material as THREE.MeshStandardMaterial).emissiveIntensity = pulse;
+
+      // Color temperature shift: oscillate from orange to yellow and back over 20 seconds
+      const shiftPeriod = 20; // seconds for full cycle
+      const t = Math.abs(Math.sin((currentTime * Math.PI) / shiftPeriod)); // 0 to 1 to 0 smoothly
+      const currentColor = startColor.clone().lerp(endColor, t);
+      (sunRef.current.material as THREE.MeshStandardMaterial).emissive = currentColor;
+
       sunRef.current.rotation.y += delta * 0.05;
 
       // Throttle noise animation updates for better performance (every 50ms)
