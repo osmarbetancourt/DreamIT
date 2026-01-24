@@ -7,11 +7,11 @@ import * as THREE from "three";
 
 interface SunProps {
   scrollProgress: number;
-  sunRef?: React.RefObject<THREE.Mesh>;
+  sunRef?: React.RefObject<THREE.Mesh | null>;
 }
 
 export default function Sun({ scrollProgress, sunRef: externalSunRef }: SunProps) {
-  const internalSunRef = useRef<THREE.Mesh>(null);
+  const internalSunRef = useRef<THREE.Mesh | null>(null);
   const sunRef = externalSunRef || internalSunRef;
   const atmosphereRef = useRef<THREE.Mesh>(null);
   const [animationProgress, setAnimationProgress] = useState(0);

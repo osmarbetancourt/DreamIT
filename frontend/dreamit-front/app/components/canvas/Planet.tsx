@@ -30,7 +30,7 @@ export default function Planet({ config, state, onHover, onClick }: PlanetProps)
   // Hover state
   const [hovered, setHovered] = React.useState(false);
 
-  useFrame((state, delta) => {
+  useFrame((r3fState, delta) => {
     if (!groupRef.current || !planetRef.current) return;
 
     // Self rotation
@@ -44,7 +44,7 @@ export default function Planet({ config, state, onHover, onClick }: PlanetProps)
 
     // Orbital motion for background planets
     if (state === 'background') {
-      const time = state.clock.getElapsedTime();
+      const time = r3fState.clock.getElapsedTime();
       const angle = time * config.orbit.speed * 0.1 + config.orbit.initialAngle * Math.PI / 180;
       const x = Math.cos(angle) * config.orbit.radius;
       const z = Math.sin(angle) * config.orbit.radius;

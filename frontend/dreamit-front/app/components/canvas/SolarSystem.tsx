@@ -1,14 +1,15 @@
 "use client";
 import React from "react";
+import * as THREE from 'three';
 import Sun from "./Sun";
-import { PlanetConfig } from "../../types/planet";
+import { PlanetConfig } from "@/types/planet";
 
 interface SolarSystemProps {
   planets: PlanetConfig[];
   scrollProgress: number;
   onPlanetHover?: (planetId: string, hovered: boolean) => void;
   onPlanetClick?: (planetId: string) => void;
-  sunRef?: React.RefObject<THREE.Mesh>;
+  sunRef?: React.RefObject<THREE.Mesh | null>;
 }
 
 export default function SolarSystem({

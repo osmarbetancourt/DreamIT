@@ -63,11 +63,6 @@ export default function ProjectsScene() {
     };
   }, [visible, cinematicProgress]);
 
-  const label = useMemo(() => {
-    if (locale === "es") return "Ver nuestros proyectos";
-    return "See our projects";
-  }, [locale]);
-
   // final effective opacity: prefer cinematic progress if present, else local fade
   const effectiveProgress = warped ? Math.max(localFade, Math.min(1, cinematicProgress)) : 1;
   // subtle scaling so it never goes fully invisible on mount
@@ -101,7 +96,6 @@ export default function ProjectsScene() {
           />
         </group>
 
-        {/* Post-processing effects for the sun */}
         <EffectComposer>
           <Bloom
             intensity={1.5}
@@ -109,18 +103,20 @@ export default function ProjectsScene() {
             luminanceSmoothing={0.9}
             mipmapBlur
           />
-          {sunRef.current && (
-            <GodRays
-              sun={sunRef.current}
-              samples={60}
-              density={0.96}
-              decay={0.92} // Updated to match example
-              weight={0.4} // Updated to match example
-              exposure={0.6} // Updated to match example
-              clampMax={1} // Added for artifact prevention
-              blur={true} // Added for smoothing
-            />
-          )}
+          <>
+            {sunRef.current && (
+              <GodRays
+                sun={sunRef.current as THREE.Mesh}
+                samples={60}
+                density={0.96}
+                decay={0.92} // Updated to match example
+                weight={0.4} // Updated to match example
+                exposure={0.6} // Updated to match example
+                clampMax={1} // Added for artifact prevention
+                blur={true} // Added for smoothing
+              />
+            )}
+          </>
         </EffectComposer>
       </Canvas>
 
