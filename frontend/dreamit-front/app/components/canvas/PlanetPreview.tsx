@@ -3,11 +3,11 @@ import React, { Suspense } from "react";
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls, Environment, ContactShadows } from "@react-three/drei";
 import Planet from "./Planet";
-import { PlanetConfig, PlanetType } from "../../types/planet";
+import { PlanetConfig, PlanetType, PlanetFeature } from "../../../types/planet";
 
 interface PlanetPreviewProps {
   planetType: PlanetType;
-  features?: string[];
+  features?: PlanetFeature[];
   size?: number;
   primaryColor?: string;
   secondaryColor?: string;
