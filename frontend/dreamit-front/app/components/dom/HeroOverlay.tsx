@@ -31,7 +31,7 @@ export default function HeroOverlay({ title, subtitle, showRocketTrail = false }
             top: 100%;
             left: 50%;
             transform: translateX(-50%);
-            width: 8px;
+            width: 12px;
             height: 0; /* Start invisible */
             opacity: 0; /* Start transparent */
             background: linear-gradient(
@@ -63,7 +63,7 @@ export default function HeroOverlay({ title, subtitle, showRocketTrail = false }
             top: 100%;
             left: 50%;
             transform: translateX(-50%);
-            width: 6px;
+            width: 10px;
             height: 0; /* Start invisible */
             opacity: 0; /* Start transparent */
             background: linear-gradient(
@@ -133,17 +133,17 @@ export default function HeroOverlay({ title, subtitle, showRocketTrail = false }
 
           /* Turbulent width pulsing */
           @keyframes turbulence {
-            0%, 100% { width: 5px; }
-            25% { width: 7px; }
-            50% { width: 6px; }
-            75% { width: 8px; }
+            0%, 100% { width: 10px; }
+            25% { width: 14px; }
+            50% { width: 11px; }
+            75% { width: 16px; }
           }
 
           @keyframes turbulence-glow {
-            0%, 100% { width: 3px; }
-            30% { width: 5px; }
-            60% { width: 4px; }
-            80% { width: 6px; }
+            0%, 100% { width: 8px; }
+            30% { width: 12px; }
+            60% { width: 9px; }
+            80% { width: 14px; }
           }
 
           /* Mobile animation adjustments */
@@ -193,17 +193,17 @@ export default function HeroOverlay({ title, subtitle, showRocketTrail = false }
             }
 
             @keyframes turbulence {
-              0%, 100% { width: 4px; }
-              25% { width: 6px; }
-              50% { width: 5px; }
-              75% { width: 7px; }
+              0%, 100% { width: 8px; }
+              25% { width: 12px; }
+              50% { width: 9px; }
+              75% { width: 14px; }
             }
 
             @keyframes turbulence-glow {
-              0%, 100% { width: 2px; }
-              30% { width: 4px; }
-              60% { width: 3px; }
-              80% { width: 5px; }
+              0%, 100% { width: 6px; }
+              30% { width: 10px; }
+              60% { width: 7px; }
+              80% { width: 12px; }
             }
           }
 
@@ -213,10 +213,25 @@ export default function HeroOverlay({ title, subtitle, showRocketTrail = false }
                        turbulence 0.8s ease-in-out infinite;
           }
 
-          #dreamit-hero-title::before {
-            animation: rocket-trail-glow 4s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.2s forwards,
-                       flow-down 1.2s linear infinite 0.1s,
-                       turbulence-glow 0.6s ease-in-out infinite 0.3s;
+          /* Text turbulence effect for mobile */
+          @keyframes text-turbulence {
+            0%, 100% { transform: translateX(0) translateY(0) /* rotate(0deg) */; }
+            10% { transform: translateX(-2px) translateY(1px) /* rotate(-2deg) */; }
+            20% { transform: translateX(2px) translateY(-1px) /* rotate(2deg) */; }
+            30% { transform: translateX(-1.5px) translateY(2px) /* rotate(-1deg) */; }
+            40% { transform: translateX(1.5px) translateY(-2px) /* rotate(1.5deg) */; }
+            50% { transform: translateX(-2px) translateY(1px) /* rotate(-2deg) */; }
+            60% { transform: translateX(2px) translateY(-1px) /* rotate(1deg) */; }
+            70% { transform: translateX(-1.5px) translateY(2px) /* rotate(-1.5deg) */; }
+            80% { transform: translateX(1.5px) translateY(-2px) /* rotate(2deg) */; }
+            90% { transform: translateX(-2px) translateY(1px) /* rotate(-1deg) */; }
+          }
+
+          /* Mobile-only text turbulence during rocket trail */
+          @media (max-width: 768px) {
+            #dreamit-hero-title {
+              animation: text-turbulence 4s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+            }
           }
         `}</style>
       )}
