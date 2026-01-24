@@ -1,4 +1,4 @@
-import { PlanetConfig } from "../types/planet";
+import { PlanetConfig } from "../../types/planet";
 
 // Mock planet configurations for development
 // In production, this will come from the API
