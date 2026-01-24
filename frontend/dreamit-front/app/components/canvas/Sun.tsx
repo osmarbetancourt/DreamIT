@@ -2,154 +2,60 @@
 import React, { useRef, useMemo, useState } from "react";
 import { useFrame } from "@react-three/fiber";
 import { useTexture } from "@react-three/drei";
-import { LayerMaterial, Noise } from "lamina";
 import * as THREE from "three";
 
 interface SunProps {
-  scrollProgress: number;
   sunRef?: React.RefObject<THREE.Mesh | null>;
 }
 
-export default function Sun({ scrollProgress, sunRef: externalSunRef }: SunProps) {
+export default function Sun({ sunRef: externalSunRef }: SunProps) {
   const internalSunRef = useRef<THREE.Mesh | null>(null);
   const sunRef = externalSunRef || internalSunRef;
-  const atmosphereRef = useRef<THREE.Mesh>(null);
   const [animationProgress, setAnimationProgress] = useState(0);
-  const [pulse, setPulse] = useState(1);
   const [startTime] = useState(() => performance.now());
-  const lastNoiseUpdate = useRef(0);
-  const originalPositions = useRef<Float32Array | null>(null);
 
   // Load NASA texture
-  const sunMap = useTexture('/2k_sun.webp');
+  const sunMap = useTexture('/8k_sun.jpg');
 
-  // 🎯 FINE-TUNE THIS VALUE: Controls how fast the sun rises (in seconds)
-  const RISE_DURATION = 5; // Slower, more cinematic rise
+  // Delay before sun appears (after hero crawl ends)
+  const SUN_DELAY = 11;
+  // Rise duration in seconds
+  const RISE_DURATION = 6;
 
-  const currentPosition = useRef([0, 0, 0]);
-  const hasLogged = useRef(false);
-  const hasLoggedRendered = useRef(false);
-  const hasLoggedDebug = useRef(false);
-
-  // Automatic sun animation (optimized for performance)
-  useFrame(() => {
-    const elapsed = (performance.now() - startTime) / 1000; // seconds
-    const duration = 15; // Extended for crawl + full sun cinematic
-    const progress = Math.min(elapsed / duration, 1);
-    setAnimationProgress(progress);
-
-    // Update current position for noise offset
-    const sunProgress = Math.max(0, progress - 0.35);
-    const riseEndProgress = RISE_DURATION / 15;
-    if (sunProgress < riseEndProgress) {
-      const riseProgress = sunProgress / riseEndProgress;
-      const startPos = [0, -1.5, 100];
-      const endPos = [0, 2.0, -7];
-      const currentX = startPos[0] + (riseProgress * (endPos[0] - startPos[0]));
-      const currentY = startPos[1] + (riseProgress * (endPos[1] - startPos[1]));
-      const currentZ = startPos[2] + (riseProgress * (endPos[2] - startPos[2]));
-      currentPosition.current = [currentX, currentY, currentZ];
-    } else {
-      currentPosition.current = [0, 2.0, -7];
-    }
-  });
-
-  const hasLoggedVisible = useRef(false);
-
-  // Sun fade-in and position based on automatic animation (hero-style reveal)
-  const sunOpacity = useMemo(() => {
-    return animationProgress > 0.35 ? 1 : 0; // Sun appears closer to when letters disappear
-  }, [animationProgress]);
-
-  const sunRevealed = sunOpacity > 0;
-
-  // Log when sun becomes visible (only once)
-  if (sunRevealed && !hasLoggedVisible.current) {
-    console.log('Sun is now visible on screen');
-    hasLoggedVisible.current = true;
-  }
-
-  // Sun positioning - cinematic rise from bottom close to final position
-  const sunPosition = useMemo(() => {
-    const sunProgress = Math.max(0, animationProgress - 0.35); // Offset so sun starts rise from beginning
-    const riseEndProgress = RISE_DURATION / 15; // Use actual duration
-
-    if (sunProgress < riseEndProgress) {
-      // Cinematic rise: from bottom close to front center
-      const riseProgress = sunProgress / riseEndProgress;
-      const startPos = [0, -1.5, 5]; // Start close, slightly below center for cinematic effect within view
-      const endPos = [0, 2.0, -7];
-      const currentX = startPos[0] + (riseProgress * (endPos[0] - startPos[0]));
-      const currentY = startPos[1] + (riseProgress * (endPos[1] - startPos[1]));
-      const currentZ = startPos[2] + (riseProgress * (endPos[2] - startPos[2]));
-      return [currentX, currentY, currentZ] as [number, number, number];
-    } else {
-      // Final position
-      return [0, 2.0, -7] as [number, number, number];
-    }
-  }, [animationProgress, RISE_DURATION]);
-
-  const sunScale = useMemo(() => {
-    // Sun stays at full scale throughout - perspective creates the "presentation" effect
-    return 1.0;
-  }, []);
-
-  const startColor = useMemo(() => new THREE.Color("#FF8C00"), []); // Orange
-  const endColor = useMemo(() => new THREE.Color("#FFFF00"), []); // Yellow
-
+  // Combined useFrame for all updates
   useFrame((state, delta) => {
     const currentTime = state.clock.getElapsedTime();
+    const elapsed = (performance.now() - startTime) / 1000;
+    // Delay animation start until after hero crawl
+    const delayedElapsed = Math.max(0, elapsed - SUN_DELAY);
+    const progress = Math.min(delayedElapsed / RISE_DURATION, 1);
+    setAnimationProgress(progress);
+
     if (sunRef.current) {
-      // Gentle sun rotation only on Y axis, red
+      // Sun rotation
+      sunRef.current.rotation.y += delta * 0.25;
 
-      // Emissive pulsing: oscillate intensity between 1.5 and 1.9 over 8 seconds
-      const pulsePeriod = 8; // seconds
-      const pulse = 1.7 + 0.2 * Math.sin((currentTime * 2 * Math.PI) / pulsePeriod);
+      // Emissive pulsing: 1.8 to 2.2 over 8 seconds
+      const pulse = 2.0 + 0.2 * Math.sin((currentTime * 2 * Math.PI) / 8);
       (sunRef.current.material as THREE.MeshStandardMaterial).emissiveIntensity = pulse;
-
-      // Color temperature shift: oscillate from orange to yellow and back over 20 seconds
-      const shiftPeriod = 20; // seconds for full cycle
-      const t = Math.abs(Math.sin((currentTime * Math.PI) / shiftPeriod)); // 0 to 1 to 0 smoothly
-      const currentColor = startColor.clone().lerp(endColor, t);
-      (sunRef.current.material as THREE.MeshStandardMaterial).emissive = currentColor;
-
-      sunRef.current.rotation.y += delta * 0.05;
-
-      // Throttle noise animation updates for better performance (every 50ms)
-      if (currentTime - lastNoiseUpdate.current > 0.05) { // Update every 50ms
-        lastNoiseUpdate.current = currentTime;
-
-        // Animate the noise offsets for concentric wave effect with position compensation
-        if (sunRef.current.material && 'layers' in sunRef.current.material) {
-          if (!hasLoggedDebug.current) {
-            hasLoggedDebug.current = true;
-          }
-          const material = sunRef.current.material as any;
-          const noiseLayers = material.layers.filter((layer: any) => layer.type === 'simplex' || layer.type === 'cell');
-          if (noiseLayers.length >= 2) {
-            // Log centers once
-            if (!hasLogged.current) {
-              hasLogged.current = true;
-            }
-
-            // DISABLED: Frequent noise updates for performance - static noise instead
-            // Both layers set to static offsets
-            if (noiseLayers.length > 0) {
-              noiseLayers[0].offset.set(0, 0, 0);
-            }
-            if (noiseLayers.length > 1) {
-              noiseLayers[1].offset.set(0, 0, 0);
-            }
-          }
-        }
-      }
-    }
-
-    // Differential rotation for atmosphere, reduced speed
-    if (atmosphereRef.current) {
-      atmosphereRef.current.rotation.y += delta * 0.03;
     }
   });
+
+  // Sun reveal - appears after hero crawl
+  const sunRevealed = animationProgress > 0;
+
+  // Sun position with consistent start
+  const sunPosition = useMemo(() => {
+    const riseProgress = Math.max(0, animationProgress);
+    const startPos = [0, -1.5, 5]; // Close start for cinematic effect
+    const endPos = [0, 2.0, -7];
+    const currentX = startPos[0] + (riseProgress * (endPos[0] - startPos[0]));
+    const currentY = startPos[1] + (riseProgress * (endPos[1] - startPos[1]));
+    const currentZ = startPos[2] + (riseProgress * (endPos[2] - startPos[2]));
+    return [currentX, currentY, currentZ] as [number, number, number];
+  }, [animationProgress]);
+
+  const sunScale = useMemo(() => 1.0, []);
 
   if (!sunRevealed) return null;
 

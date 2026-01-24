@@ -10,7 +10,7 @@ import { mockPlanets } from "../../data/mockPlanets";
 import * as THREE from "three";
 
 function PreloadTextures() {
-  const texture = useTexture('/2k_sun.webp');
+  const texture = useTexture('/8k_sun.jpg');
   return null;
 }
 

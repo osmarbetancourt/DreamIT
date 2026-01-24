@@ -34,7 +34,7 @@ export default function SolarTextOverlay({ solarText }: SolarTextOverlayProps) {
           text-align: center;
           text-shadow: 0 0 10px rgba(255, 215, 0, 0.8);
           white-space: pre-line;
-          animation: crawl 6s linear forwards;
+          animation: crawl 12s linear forwards;
           position: relative;
         }
 
