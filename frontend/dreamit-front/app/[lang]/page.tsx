@@ -4,7 +4,6 @@ import SceneBootstrap from '../components/dom/SceneBootstrap';
 import HeroOverlay from '../components/dom/HeroOverlay';
 import JumpScroller from '../components/dom/JumpScroller';
 import WarpOverlay from '../components/dom/WarpOverlay';
-import MobileHeroContent from '../components/dom/MobileHeroContent';
 import MobileStars from '../components/canvas/MobileStars';
 import MobileScrollNavigator from '../components/dom/MobileScrollNavigator';
 import { headers } from 'next/headers';
@@ -62,12 +61,8 @@ export default async function Home({ params }: PageProps) {
       <HeroOverlay
         title={dict.hero.title}
         subtitle={dict.hero.subtitle}
+        showRocketTrail={isMobileServer}
       />
-
-      {/* 3. Mobile-Specific Content (only on mobile) */}
-      {isMobileServer && (
-        <MobileHeroContent locale={lang} />
-      )}
 
       {/* Full-screen mask used to hide route swap during cinematic */}
       <WarpOverlay />

@@ -40,7 +40,8 @@ body {
 }
 
 /* When the loader starts exiting, animate elements into place */
-.dreamit-loader-exiting .dreamit-hidden-for-loader {
+.dreamit-loader-exiting .dreamit-hidden-for-loader,
+.dreamit-loaded .dreamit-hidden-for-loader {
   transform: translateY(0);
   opacity: 1;
   pointer-events: auto;

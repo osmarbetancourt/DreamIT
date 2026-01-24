@@ -4,6 +4,7 @@ import "../globals.css"; // Ensure this path is correct based on your folder str
 import ContactCTA from "../components/dom/ContactCTA";
 import HomeButton from "../components/dom/HomeButton";
 import PersistentStarsClient from "../components/canvas/PersistentStarsClient";
+import MobileStars from "../components/canvas/MobileStars";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -88,6 +89,8 @@ export default async function RootLayout({
       <ContactCTA lang={lang} />
       {/* Persistent starfield mounted once at the layout level so it survives route changes */}
       <PersistentStarsClient />
+      {/* Mobile stars with subtle twinkle movement */}
+      <MobileStars />
       {children}
     </>
   );
