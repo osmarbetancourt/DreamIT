@@ -3,11 +3,13 @@
   "short_name": "DreamIT",
   "start_url": "/",
   "display": "standalone",
+  "background_color": "#0A0D23",
+  "theme_color": "#0A0D23",
   "icons": [
     {
-      "src": "/og-es.png",
-      "sizes": "1200x630",
-      "type": "image/png",
+      "src": "/dreamit_logo_wbg.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
       "purpose": "any maskable"
     }
   ]

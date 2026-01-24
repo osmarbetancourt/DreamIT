@@ -1,16 +1,22 @@
 "use client";
 import React, { useEffect, useState } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter, useParams, usePathname } from 'next/navigation';
 import useCinematicStore from '../../logic/useCinematicStore';
 
 export default function WarpOverlay() {
   const router = useRouter();
+  const pathname = usePathname();
   const showPlanets = useCinematicStore((s) => s.showPlanets);
   const [visible, setVisible] = useState(false);
   const [opaque, setOpaque] = useState(false);
   const [navigated, setNavigated] = useState(false);
   const params = useParams();
   const lang = params?.lang || 'en';
+
+  // Reset navigation state when pathname changes (user navigates to different page)
+  useEffect(() => {
+    setNavigated(false);
+  }, [pathname]);
 
   useEffect(() => {
     let t1: any = null;
@@ -25,7 +31,7 @@ export default function WarpOverlay() {
         t2 = setTimeout(async () => {
           try {
             // navigate to localized projects route while overlay is visible
-            await router.replace(`/${lang}/projects?warped=1`);
+            await router.push(`/${lang}/projects?warped=1`);
           } catch (e) {}
           setNavigated(true);
           // hide overlay after a short delay to reveal destination

@@ -1,5 +1,6 @@
 "use client";
 import React, { useEffect, useRef } from "react";
+import { usePathname } from "next/navigation";
 import useDeviceStore from "../../logic/useDeviceStore";
 import useCinematicStore from '../../logic/useCinematicStore';
 
@@ -7,6 +8,7 @@ import useCinematicStore from '../../logic/useCinematicStore';
 // Emits a custom event `dreamit:jumpProgress` with { progress: 0..1 }.
 export default function JumpScroller() {
   const { isCanvasAllowed } = useDeviceStore();
+  const pathname = usePathname();
   const accRef = useRef(0); // accumulated wheel delta (internal accumulator)
   const rotAccRef = useRef(0); // signed rotation accumulator (-ROT_MAX..ROT_MAX)
   const rotCurrentRef = useRef(0); // smoothed rotation value (-1..1)
@@ -14,6 +16,20 @@ export default function JumpScroller() {
   const currentRef = useRef(0); // smoothed progress 0..1
   const forceFullRef = useRef(false);
   const rafRef = useRef<number | null>(null);
+
+  // Reset scroll state when pathname changes (user navigates to different page)
+  useEffect(() => {
+    accRef.current = 0;
+    rotAccRef.current = 0;
+    rotCurrentRef.current = 0;
+    targetRef.current = 0;
+    currentRef.current = 0;
+    forceFullRef.current = false;
+    if (rafRef.current) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    }
+  }, [pathname]);
 
   useEffect(() => {
     if (!isCanvasAllowed) return; // only desktop/canvas

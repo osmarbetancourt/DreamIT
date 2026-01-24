@@ -8,6 +8,7 @@ import MobileHeroContent from '../components/dom/MobileHeroContent';
 import MobileStars from '../components/canvas/MobileStars';
 import MobileScrollNavigator from '../components/dom/MobileScrollNavigator';
 import { headers } from 'next/headers';
+import HomePageReset from '../components/dom/HomePageReset';
 
 interface PageProps {
   params: Promise<{ lang: 'en' | 'es' }>;
@@ -47,6 +48,9 @@ export default async function Home({ params }: PageProps) {
   return (
     // FULL SCREEN CONTAINER
     <main className="relative w-full h-screen overflow-hidden bg-black">
+
+      {/* Reset cinematic state when returning to home page */}
+      <HomePageReset />
 
       {/* Mobile Stars Background (only on mobile) */}
       {isMobileServer && <MobileStars />}

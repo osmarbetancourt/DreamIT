@@ -64,16 +64,16 @@ export default function ContactCTA({ lang = "en" }: { lang?: string }) {
 
             {/* Footer social icons (only Instagram, LinkedIn, GitHub) */}
             <div className="mt-4 flex items-center justify-center gap-6">
-              <a href="https://www.instagram.com/dreamit.software" target="_blank" rel="noreferrer" aria-label="Instagram" className="text-white/90 hover:text-amber-300">
+              <a href="https://www.instagram.com/dreamit.software" target="_blank" rel="noreferrer" aria-label="Instagram" className="filter brightness-0 invert hover:sepia hover:saturate-[5] hover:hue-rotate-[45deg] transition-all">
                 <img src="https://simpleicons.org/icons/instagram.svg" alt="Instagram" width="22" height="22" />
               </a>
-              <a href="https://www.linkedin.com/company/dreamit-software/" target="_blank" rel="noreferrer" aria-label="LinkedIn" className="text-white/90 hover:text-amber-300">
+              <a href="https://www.linkedin.com/company/dreamit-software/" target="_blank" rel="noreferrer" aria-label="LinkedIn" className="filter brightness-0 invert hover:sepia hover:saturate-[5] hover:hue-rotate-[45deg] transition-all">
                 <img src="/icons8-linkedin.svg" alt="LinkedIn" width="22" height="22" />
               </a>
-              <a href="https://tiktok.com/@dreamit.software" target="_blank" rel="noreferrer" aria-label="TikTok" className="text-white/90 hover:text-amber-300">
+              <a href="https://tiktok.com/@dreamit.software" target="_blank" rel="noreferrer" aria-label="TikTok" className="filter brightness-0 invert hover:sepia hover:saturate-[5] hover:hue-rotate-[45deg] transition-all">
                 <img src="https://simpleicons.org/icons/tiktok.svg" alt="TikTok" width="22" height="22" />
               </a>
-              <a href="https://github.com/DreamIT-VE" target="_blank" rel="noreferrer" aria-label="GitHub" className="text-white/90 hover:text-amber-300">
+              <a href="https://github.com/DreamIT-VE" target="_blank" rel="noreferrer" aria-label="GitHub" className="filter brightness-0 invert hover:sepia hover:saturate-[5] hover:hue-rotate-[45deg] transition-all">
                 <img src="https://simpleicons.org/icons/github.svg" alt="GitHub" width="22" height="22" />
               </a>
             </div>
