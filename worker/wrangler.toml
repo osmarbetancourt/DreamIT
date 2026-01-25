@@ -1,0 +1,8 @@
+name = "dreamit-assets-worker"
+main = "src/index.js"
+compatibility_date = "2024-01-01"
+account_id = "d3762b595d429b6a423cb7110b26c2cc"
+
+[[r2_buckets]]
+binding = "MY_BUCKET"
+bucket_name = "dreamit-bucket"
