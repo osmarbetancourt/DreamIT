@@ -42,7 +42,7 @@ export default function SolarSystem({
   const foregroundPlanet = getForegroundPlanet(scrollProgress);
 
   // Sequential planet reveal: only show one planet at a time
-  let visiblePlanets = [];
+  let visiblePlanets: PlanetConfig[] = [];
 
   if (cinematicMode) {
     if (firstPlanetRevealed) {

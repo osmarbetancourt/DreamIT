@@ -34,4 +34,12 @@ export interface SolarSystemState {
 
 export type PlanetType = 'terrestrial' | 'gas-giant' | 'icy' | 'volcanic' | 'exotic';
 
-export type PlanetFeature = 'atmosphere' | 'oceans' | 'rings' | 'moons' | 'craters' | 'volcanoes';
+export type PlanetFeature = 'atmosphere' | 'oceans' | 'rings' | 'moons' | 'craters' | 'volcanoes' | 'aurora' | 'magnetic-field';
+
+export interface PlanetPreviewPreset {
+  type: PlanetType;
+  size: number;
+  primaryColor: string;
+  secondaryColor: string;
+  features: PlanetFeature[];
+}

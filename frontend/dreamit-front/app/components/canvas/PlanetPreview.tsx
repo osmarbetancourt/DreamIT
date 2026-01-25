@@ -3,7 +3,7 @@ import React, { Suspense } from "react";
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls, Environment, ContactShadows } from "@react-three/drei";
 import Planet from "./Planet";
-import { PlanetConfig, PlanetType, PlanetFeature } from "../../../types/planet";
+import { PlanetConfig, PlanetType, PlanetFeature, PlanetPreviewPreset } from "../../../types/planet";
 
 interface PlanetPreviewProps {
   planetType: PlanetType;
@@ -15,7 +15,7 @@ interface PlanetPreviewProps {
 }
 
 // Predefined planet configurations for preview
-const PLANET_PRESETS: Record<PlanetType, Omit<PlanetConfig, 'id' | 'name' | 'projectId' | 'orbit' | 'revealAt'>> = {
+const PLANET_PRESETS: Record<PlanetType, PlanetPreviewPreset> = {
   terrestrial: {
     type: 'terrestrial',
     size: 1.0,
@@ -62,15 +62,16 @@ export default function PlanetPreview({
   className = "w-32 h-32"
 }: PlanetPreviewProps) {
   // Create preview config
+  const preset = PLANET_PRESETS[planetType];
   const previewConfig: PlanetConfig = {
     id: 'preview',
     name: `${planetType} Preview`,
     projectId: 'preview',
-    ...PLANET_PRESETS[planetType],
     size: size,
-    primaryColor: primaryColor || PLANET_PRESETS[planetType].primaryColor,
-    secondaryColor: secondaryColor || PLANET_PRESETS[planetType].secondaryColor,
-    features: [...PLANET_PRESETS[planetType].features, ...features],
+    textureName: planetType.replace('-', '_'), // e.g., 'terrestrial', 'gas_giant'
+    tintColor: primaryColor || preset.primaryColor,
+    hasRings: preset.features.includes('rings'),
+    hasGlow: true, // Always glow for preview
     orbit: { radius: 0, speed: 1, inclination: 0, initialAngle: 0 },
     revealAt: 0
   };
