@@ -91,7 +91,7 @@ export default function JumpScroller() {
       lastPointerY = e.clientY;
       isPointerDown = true;
       // Optional: capture pointer for better control on touch devices
-      if (e.pointerType === 'touch') {
+      if (e.pointerType === 'touch' && e.target) {
         e.target.addEventListener('pointermove', onPointerMove);
         (e.target as Element).setPointerCapture(e.pointerId);
       }
