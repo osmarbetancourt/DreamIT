@@ -31,3 +31,7 @@ export interface SolarSystemState {
   isTransitioning: boolean;
   sunIntensity: number; // For dynamic lighting
 }
+
+export type PlanetType = 'terrestrial' | 'gas-giant' | 'icy' | 'volcanic' | 'exotic';
+
+export type PlanetFeature = 'atmosphere' | 'oceans' | 'rings' | 'moons' | 'craters' | 'volcanoes';
