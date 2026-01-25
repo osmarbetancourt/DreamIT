@@ -7,6 +7,7 @@ import { useFrame } from "@react-three/fiber";
 import { RectAreaLightUniformsLib } from "three/examples/jsm/lights/RectAreaLightUniformsLib";
 import Astronaut from "./Astronaut";
 import Wormhole from "./Wormhole";
+import PlanetPreloader from "./PlanetPreloader";
 import dynamic from 'next/dynamic';
 import useWormholeEffectsStore from '../../logic/useWormholeEffectsStore';
 import useCinematicStore from '../../logic/useCinematicStore';
@@ -149,6 +150,9 @@ export default function World({ projects = [] }: { projects: any[] }) {
 
       {/* 3. Stars Background */}
       <Stars radius={100} depth={50} count={3000} factor={4} saturation={0} speed={1} />
+
+      {/* Planet Preloader - starts loading planet textures in background during hero sequence */}
+      <PlanetPreloader />
 
       {/* Astronaut (Hero) aligned with hero text — controlled by cinematic director */}
       {showAstronaut && (

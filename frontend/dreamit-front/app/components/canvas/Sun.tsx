@@ -48,7 +48,7 @@ export default function Sun({ sunRef: externalSunRef }: SunProps) {
   const sunPosition = useMemo(() => {
     const riseProgress = Math.max(0, animationProgress);
     const startPos = [0, -1.5, 5]; // Close start for cinematic effect
-    const endPos = [0, 2.0, -7];
+    const endPos = [0, 2.5, -7];
     const currentX = startPos[0] + (riseProgress * (endPos[0] - startPos[0]));
     const currentY = startPos[1] + (riseProgress * (endPos[1] - startPos[1]));
     const currentZ = startPos[2] + (riseProgress * (endPos[2] - startPos[2]));

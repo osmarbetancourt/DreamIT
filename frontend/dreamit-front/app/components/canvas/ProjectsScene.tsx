@@ -1,7 +1,7 @@
 "use client";
 import React, { useEffect, useMemo, useState, useRef } from "react";
 import { Canvas } from "@react-three/fiber";
-import { Stars, useTexture } from "@react-three/drei";
+import { useTexture } from "@react-three/drei";
 import { EffectComposer, Bloom, GodRays } from "@react-three/postprocessing";
 import SolarSystem from "./SolarSystem";
 import { useSearchParams, useParams } from "next/navigation";
@@ -9,15 +9,18 @@ import useCinematicStore from "../../logic/useCinematicStore";
 import { mockPlanets } from "../../data/mockPlanets";
 import * as THREE from "three";
 
+import PlanetPreloader from "./PlanetPreloader";
+
 function PreloadTextures() {
   const texture = useTexture('https://dreamit-assets-worker.oaba-dev.workers.dev/dreamit-page/2k_sun.webp');
-  return null;
+  return <PlanetPreloader />;
 }
 
 export default function ProjectsScene() {
   const search = useSearchParams();
   const params = useParams();
-  const warped = search?.get("warped") === "1";
+  // Always enable cinematic mode for projects page - better UX
+  const warped = true;
   const locale = params?.lang || "en";
 
   const [visible, setVisible] = useState(false);
@@ -28,10 +31,6 @@ export default function ProjectsScene() {
   const [hoveredPlanet, setHoveredPlanet] = useState<string | null>(null);
   const sunRef = useRef<THREE.Mesh>(null);
 
-  useEffect(() => {
-    if (warped) setVisible(true);
-  }, [warped]);
-
   // Planet interaction handlers
   const handlePlanetHover = (planetId: string, hovered: boolean) => {
     setHoveredPlanet(hovered ? planetId : null);
@@ -41,6 +40,10 @@ export default function ProjectsScene() {
     console.log('Planet clicked:', planetId);
     // TODO: Navigate to project details or show close-up
   };
+
+  useEffect(() => {
+    if (warped) setVisible(true);
+  }, [warped]);
 
   // subtle local fade fallback when cinematicProgress is not available (direct link)
   useEffect(() => {
@@ -63,10 +66,35 @@ export default function ProjectsScene() {
     };
   }, [visible, cinematicProgress]);
 
+  // Calculate scroll-based progress for direct links
+  const [scrollProgress, setScrollProgress] = useState(0);
+
+  useEffect(() => {
+    if (!warped) {
+      // For direct links, calculate progress based on scroll position
+      const handleScroll = () => {
+        const scrollY = window.scrollY;
+        const windowHeight = window.innerHeight;
+        const documentHeight = document.documentElement.scrollHeight;
+        const maxScroll = Math.max(0, documentHeight - windowHeight); // Prevent negative values
+        const progress = maxScroll > 0 ? Math.min(scrollY / maxScroll, 1) : 0;
+        setScrollProgress(progress);
+      };
+
+      window.addEventListener('scroll', handleScroll);
+      handleScroll(); // Initial calculation
+
+      return () => window.removeEventListener('scroll', handleScroll);
+    }
+  }, [warped]);
+
   // final effective opacity: prefer cinematic progress if present, else local fade
-  const effectiveProgress = warped ? Math.max(localFade, Math.min(1, cinematicProgress)) : 1;
+  const effectiveProgress = warped ? Math.max(localFade, Math.min(1, cinematicProgress || 0)) : scrollProgress;
+  // For planet reveals, always use scroll progress (not cinematic progress)
+  const planetScrollProgress = scrollProgress;
+
   // subtle scaling so it never goes fully invisible on mount
-  const solarOpacity = 0.05 + effectiveProgress * 0.95;
+  const solarOpacity = Math.max(0, Math.min(1, 0.05 + effectiveProgress * 0.95));
 
   return (
     <div className="fixed inset-0 z-40">
@@ -75,21 +103,14 @@ export default function ProjectsScene() {
         {/* Bind scene lighting to cinematic progress for seamless transition */}
         <ambientLight intensity={warped ? 0.6 : 0.15 + effectiveProgress * 0.45} />
         <pointLight position={[10, 10, 10]} intensity={warped ? 1.8 : 0.6 + effectiveProgress * 1.2} />
-        <Stars 
-          radius={100} 
-          depth={50} 
-          count={600} 
-          factor={3 * (0.6 + effectiveProgress * 0.4)} 
-          saturation={0.0 + effectiveProgress * 0.6} 
-        />
 
         {/* backdrop sun removed to avoid visual duplication/flash */}
 
-        {/* solar system group fades in according to cinematic progress */}
         <group position={[0, -0.5, 0]}>
           <SolarSystem
             planets={mockPlanets}
-            scrollProgress={effectiveProgress}
+            scrollProgress={planetScrollProgress} // Use scroll progress for planet reveals
+            cinematicMode={warped} // Enable cinematic mode for first planet entrance
             onPlanetHover={handlePlanetHover}
             onPlanetClick={handlePlanetClick}
             sunRef={sunRef}
