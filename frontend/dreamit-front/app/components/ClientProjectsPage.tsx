@@ -5,6 +5,7 @@ import { useDeviceStore } from "../logic/useDeviceStore";
 import MobileProjectsView from "./dom/MobileProjectsView";
 import MobileStars from "./canvas/MobileStars";
 import MobileScrollNavigator from "./dom/MobileScrollNavigator";
+import JumpScroller from "./dom/JumpScroller";
 import ProjectsScene from "./canvas/ProjectsScene";
 
 interface ClientProjectsPageProps {
@@ -58,6 +59,7 @@ export default function ClientProjectsPage({ mockProjects, lang, isMobileServer,
   // DESKTOP / HIGH-END:
   return (
     <div className="w-full h-screen relative bg-transparent text-white">
+      <JumpScroller />
       <ProjectsScene />
       <SolarTextOverlay solarText={solarText} />
     </div>

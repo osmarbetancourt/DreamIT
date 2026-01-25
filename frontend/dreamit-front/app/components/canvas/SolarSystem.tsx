@@ -24,18 +24,28 @@ export default function SolarSystem({
   sunRef
 }: SolarSystemProps) {
   const [firstPlanetRevealed, setFirstPlanetRevealed] = useState(false);
+  const [emergenceCompleted, setEmergenceCompleted] = useState(false);
+  const [dragonLogOrbiting, setDragonLogOrbiting] = useState(false);
 
   // Handle cinematic entrance for first planet
   useEffect(() => {
     if (cinematicMode && planets.length > 0 && !firstPlanetRevealed) {
-      // Delay first planet appearance - overlap with sun rise for better pacing
+      // Delay first planet appearance - start after sun rise completes for better pacing
       const timer = setTimeout(() => {
+        console.log('Setting firstPlanetRevealed to true at 17s');
         setFirstPlanetRevealed(true);
-      }, 15000); // Start planet at 15s (overlaps with sun rise)
+      }, 15000); // Start planet at 17s (after sun rise completes)
 
       return () => clearTimeout(timer);
     }
   }, [cinematicMode, planets.length, firstPlanetRevealed]);
+
+  // Set orbiting when transition completes
+  useEffect(() => {
+    if (emergenceCompleted && scrollProgress >= 0.95 && !dragonLogOrbiting) {
+      setDragonLogOrbiting(true);
+    }
+  }, [emergenceCompleted, scrollProgress, dragonLogOrbiting]);
 
   // Get planets that should be visible at current scroll progress
   const revealedPlanets = getRevealedPlanets(scrollProgress);
@@ -46,16 +56,8 @@ export default function SolarSystem({
 
   if (cinematicMode) {
     if (firstPlanetRevealed) {
-      // After cinematic entrance, use scroll-based sequential reveal
-      if (scrollProgress >= planets[0].revealAt) {
-        // Show only the current foreground planet based on scroll
-        if (foregroundPlanet) {
-          visiblePlanets = [foregroundPlanet];
-        }
-      } else {
-        // Scroll hasn't progressed enough, show first planet
-        visiblePlanets = [planets[0]];
-      }
+      // Only show the first planet (DragonLog) for now
+      visiblePlanets = [planets[0]];
     }
     // If first planet not revealed yet, show nothing (waiting for cinematic entrance)
   } else {
@@ -72,15 +74,34 @@ export default function SolarSystem({
       {visiblePlanets.map((planetConfig) => {
         const isForeground = planetConfig.id === foregroundPlanet?.id;
         const isFirstPlanet = planetConfig.id === planets[0]?.id;
-        const state = isForeground ? 'foreground' : 'background';
+        let planetState: 'emerging' | 'foreground' | 'transitioning' | 'background' | 'orbiting';
+        if (cinematicMode && isFirstPlanet && firstPlanetRevealed && !emergenceCompleted) {
+          planetState = 'emerging';
+        } else if (cinematicMode && isFirstPlanet && emergenceCompleted && !dragonLogOrbiting) {
+          planetState = 'transitioning';
+        } else if (cinematicMode && isFirstPlanet && dragonLogOrbiting) {
+          planetState = 'orbiting';
+        } else if (scrollProgress >= planetConfig.revealAt) {
+          planetState = 'orbiting';
+        } else {
+          planetState = 'background';
+        }
+        const state = (cinematicMode && isFirstPlanet && (!firstPlanetRevealed || (firstPlanetRevealed && !emergenceCompleted))) ? 'emerging' : planetState;
 
         return (
           <Planet
             key={planetConfig.id}
             config={planetConfig}
-            state={cinematicMode && isFirstPlanet && !isForeground ? 'emerging' : state}
+            state={state}
             onHover={onPlanetHover}
             onClick={onPlanetClick}
+            onEmergenceComplete={isFirstPlanet ? () => { 
+              setEmergenceCompleted(true); 
+              console.log('🚀 DragonLog emergence complete - ready to unlock scroll!'); 
+              // Check if already at orbiting threshold
+              if (scrollProgress >= 1.5) setDragonLogOrbiting(true);
+            } : undefined}
+            scrollProgress={scrollProgress}
           />
         );
       })}

@@ -45,8 +45,12 @@ export default function JumpScroller() {
 
     // Shared delta processing function
     function processDelta(delta: number) {
-      // If the cinematic director has locked the scene, ignore user input
-      if (useCinematicStore.getState().isLocked) return;
+      // If the cinematic director has locked the scene, ignore user input (except on projects page)
+      if (useCinematicStore.getState().isLocked && !pathname.includes('projects')) return;
+
+      if (pathname.includes('projects')) {
+        console.log('🔓 Scroll enabled on projects page - processing delta');
+      }
 
       // limit large deltas and use a gentle multiplier so only a few scroll ticks are needed
       const processedDelta = Math.sign(delta) * Math.min(48, Math.abs(delta)) * 0.9;

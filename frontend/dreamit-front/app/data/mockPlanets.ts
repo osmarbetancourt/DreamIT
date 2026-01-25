@@ -7,7 +7,7 @@ export const mockPlanets: PlanetConfig[] = [
     id: 'dragon-log',
     name: 'DragonLog',
     projectId: '1',
-    size: 0.6, // 60% size - perfect balance
+    size: 1, // 60% size - perfect balance
     textureName: '2k_mars.webp', // Innovative/exploratory
     tintColor: '#ff0000', // Gaming red
     hasRings: false,

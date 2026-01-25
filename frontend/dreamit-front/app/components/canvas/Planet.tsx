@@ -8,22 +8,34 @@ import { usePlanetTexture } from "./PlanetPreloader";
 
 interface PlanetProps {
   config: PlanetConfig;
-  state: 'emerging' | 'foreground' | 'transitioning' | 'background';
+  state: 'emerging' | 'foreground' | 'transitioning' | 'background' | 'orbiting';
   onHover?: (planetId: string, hovered: boolean) => void;
   onClick?: (planetId: string) => void;
+  onEmergenceComplete?: (planetId: string) => void;
+  scrollProgress?: number;
 }
 
-export default function Planet({ config, state, onHover, onClick }: PlanetProps) {
+export default function Planet({ config, state, onHover, onClick, onEmergenceComplete, scrollProgress = 0 }: PlanetProps) {
   const groupRef = useRef<THREE.Group>(null);
   const planetRef = useRef<THREE.Mesh>(null);
   const { viewport } = useThree();
 
   // Cinematic entrance state for first planet
   const [emergenceProgress, setEmergenceProgress] = useState(0);
-  const [emergenceStartTime] = useState(() => performance.now());
+  const emergenceStartTimeRef = useRef<number | null>(null);
+  const [emergenceCompleted, setEmergenceCompleted] = useState(false);
+  const [maxScrollProgress, setMaxScrollProgress] = useState(0);
+  const orbitStartTimeRef = useRef<number | null>(null);
 
   // Hover state
   const [hovered, setHovered] = useState(false);
+
+  // Reset orbit start time when not orbiting
+  useEffect(() => {
+    if (state !== 'orbiting') {
+      orbitStartTimeRef.current = null;
+    }
+  }, [state]);
 
   // Get preloaded NASA texture
   const planetTexture = usePlanetTexture(config.textureName || 'earth');
@@ -41,10 +53,16 @@ export default function Planet({ config, state, onHover, onClick }: PlanetProps)
   useFrame((r3fState, delta) => {
     if (!groupRef.current || !planetRef.current) return;
 
+    // Update max scroll progress for one-way transition
+    setMaxScrollProgress(prev => Math.max(prev, scrollProgress));
+
     // Handle emerging animation (cinematic entrance)
     if (state === 'emerging') {
+      if (emergenceStartTimeRef.current === null) {
+        emergenceStartTimeRef.current = performance.now();
+      }
       const currentTime = performance.now();
-      const elapsed = (currentTime - emergenceStartTime) / 1000;
+      const elapsed = (currentTime - emergenceStartTimeRef.current) / 1000;
       const progress = Math.min(elapsed / 6, 1); // 6 second rise duration like sun
       setEmergenceProgress(progress);
 
@@ -66,10 +84,32 @@ export default function Planet({ config, state, onHover, onClick }: PlanetProps)
       planetRef.current.rotation.y += delta * rotationSpeed * config.orbit.speed;
 
       // Once emerged, switch to normal behavior
-      if (progress >= 1) {
-        // This will be handled by parent component switching state
+      if (progress >= 1 && !emergenceCompleted) {
+        setEmergenceCompleted(true);
+        console.log(`🌌 Planet ${config.id} emergence animation completed!`);
+        onEmergenceComplete?.(config.id);
       }
       return; // Skip normal scaling during emergence
+    }
+
+    // Handle transitioning animation (scroll-driven movement to orbit position)
+    if (state === 'transitioning') {
+      const transitionProgress = Math.max(0, maxScrollProgress / 1.0);
+      const easedProgress = Math.sin(transitionProgress * Math.PI / 2);
+      console.log('🌌 DragonLog transitioning:', easedProgress, 'maxScrollProgress:', maxScrollProgress);
+      const emergenceEnd = new THREE.Vector3(0, -0.3, 3);
+      const orbitStart = new THREE.Vector3(config.orbit.radius * 1.5, 1.8, -17);
+      groupRef.current.position.lerpVectors(emergenceEnd, orbitStart, easedProgress);
+
+      // Scale and opacity remain at final values
+      planetRef.current.scale.setScalar(finalScale);
+      if (planetRef.current.material) {
+        (planetRef.current.material as THREE.Material).opacity = 0.9;
+      }
+
+      // Self rotation
+      planetRef.current.rotation.y += delta * rotationSpeed * config.orbit.speed;
+      return; // Skip other logic during transitioning
     }
 
     // Self rotation
@@ -81,13 +121,17 @@ export default function Planet({ config, state, onHover, onClick }: PlanetProps)
     const targetScale = hovered && isInteractive ? finalScale * 1.1 : finalScale;
     planetRef.current.scale.lerp(new THREE.Vector3(targetScale, targetScale, targetScale), 0.1);
 
-    // Orbital motion for background planets
-    if (state === 'background') {
-      const time = r3fState.clock.getElapsedTime();
+    // Orbital motion for orbiting planets
+    if (state === 'orbiting') {
+      // Capture the start time when first entering orbiting state
+      if (orbitStartTimeRef.current === null) {
+        orbitStartTimeRef.current = r3fState.clock.getElapsedTime();
+      }
+      const time = r3fState.clock.getElapsedTime() - (orbitStartTimeRef.current || 0);
       const angle = time * config.orbit.speed * 0.1 + config.orbit.initialAngle * Math.PI / 180;
-      const x = Math.cos(angle) * config.orbit.radius;
-      const z = Math.sin(angle) * config.orbit.radius;
-      groupRef.current.position.set(x, 0, z);
+      const x = Math.cos(angle) * config.orbit.radius * 1.5; // Wider horizontal sweep for landscape
+      const y = Math.sin(angle) * config.orbit.radius * 0.3 + 1.8; // Center at 1.8 to stay above sun
+      groupRef.current.position.set(x, y, -17); // Fixed Z
     }
   });
 

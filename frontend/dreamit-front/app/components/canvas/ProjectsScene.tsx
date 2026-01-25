@@ -85,6 +85,15 @@ export default function ProjectsScene() {
       handleScroll(); // Initial calculation
 
       return () => window.removeEventListener('scroll', handleScroll);
+    } else {
+      // For warped (cinematic), listen to jump progress events
+      console.log('🎧 Listening for dreamit:jumpProgress events on projects page');
+      const onProgress = (e: CustomEvent) => {
+        console.log('📈 Received jumpProgress:', e.detail.progress);
+        setScrollProgress(e.detail.progress);
+      };
+      window.addEventListener("dreamit:jumpProgress", onProgress as EventListener);
+      return () => window.removeEventListener("dreamit:jumpProgress", onProgress as EventListener);
     }
   }, [warped]);
 
@@ -125,7 +134,7 @@ export default function ProjectsScene() {
             mipmapBlur
           />
           <>
-            {sunRef.current && (
+            {/* {sunRef.current && (
               <GodRays
                 sun={sunRef.current as THREE.Mesh}
                 samples={60}
@@ -136,7 +145,7 @@ export default function ProjectsScene() {
                 clampMax={1} // Added for artifact prevention
                 blur={true} // Added for smoothing
               />
-            )}
+            )} */}
           </>
         </EffectComposer>
       </Canvas>
