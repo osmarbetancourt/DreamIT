@@ -92,7 +92,7 @@ export default function JumpScroller() {
       isPointerDown = true;
       // Optional: capture pointer for better control on touch devices
       if (e.pointerType === 'touch' && e.target) {
-        e.target.addEventListener('pointermove', onPointerMove);
+        e.target.addEventListener('pointermove', onPointerMove as EventListener);
         (e.target as Element).setPointerCapture(e.pointerId);
       }
     }
