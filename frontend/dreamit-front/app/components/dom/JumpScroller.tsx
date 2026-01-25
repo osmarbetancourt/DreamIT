@@ -4,8 +4,9 @@ import { usePathname } from "next/navigation";
 import useDeviceStore from "../../logic/useDeviceStore";
 import useCinematicStore from '../../logic/useCinematicStore';
 
-// Simple wheel-driven progress controller for desktop to demo the jump sequence.
+// Simple wheel and pointer-driven progress controller for desktop to demo the jump sequence.
 // Emits a custom event `dreamit:jumpProgress` with { progress: 0..1 }.
+// Supports mouse wheel, trackpad, and touch interactions.
 export default function JumpScroller() {
   const { isCanvasAllowed } = useDeviceStore();
   const pathname = usePathname();
@@ -42,12 +43,14 @@ export default function JumpScroller() {
     const ROT_ENABLE_THRESH = 0.995; // shrink completion threshold to enable rotation
     const ROT_ENABLE_GUARD_MS = 120; // short guard after enable to avoid pre-accumulated jumps
 
-    function onWheel(e: WheelEvent) {
-      // If the cinematic director has locked the scene, ignore user wheel input
+    // Shared delta processing function
+    function processDelta(delta: number) {
+      // If the cinematic director has locked the scene, ignore user input
       if (useCinematicStore.getState().isLocked) return;
-      // accumulate only vertical wheel (trackpads included)
+
       // limit large deltas and use a gentle multiplier so only a few scroll ticks are needed
-      const delta = Math.sign(e.deltaY) * Math.min(48, Math.abs(e.deltaY)) * 0.9;
+      const processedDelta = Math.sign(delta) * Math.min(48, Math.abs(delta)) * 0.9;
+
       // If the smoothed progress hasn't finished, feed the main accumulator.
       // Once the smoothed progress is effectively complete (currentRef >= 0.999),
       // allow signed rotation accumulation driven by continued scroll.
@@ -55,20 +58,60 @@ export default function JumpScroller() {
         // When near completion we normally switch to rotation accumulation.
         // However, allow upward scroll (negative delta) to *reduce* the main
         // accumulator so the astronaut can un-shrink if the user scrolls back.
-        if (delta < 0) {
-          accRef.current = Math.max(0, Math.min(MAX_ACC, accRef.current + delta));
+        if (processedDelta < 0) {
+          accRef.current = Math.max(0, Math.min(MAX_ACC, accRef.current + processedDelta));
           targetRef.current = Math.max(0, Math.min(1, accRef.current / MAX_ACC));
         } else {
           // amplify accumulation slightly when very close to MAX_ACC to avoid needing many final ticks
           const nearEnd = accRef.current >= MAX_ACC * 0.85;
           const amp = nearEnd ? 1.8 : 1.0;
-          rotAccRef.current = Math.max(-ROT_MAX, Math.min(ROT_MAX, rotAccRef.current + delta * amp));
+          rotAccRef.current = Math.max(-ROT_MAX, Math.min(ROT_MAX, rotAccRef.current + processedDelta * amp));
         }
       } else {
-        accRef.current = Math.max(0, Math.min(MAX_ACC, accRef.current + delta));
+        accRef.current = Math.max(0, Math.min(MAX_ACC, accRef.current + processedDelta));
         targetRef.current = Math.max(0, Math.min(1, accRef.current / MAX_ACC));
       }
       if (!rafRef.current) loop();
+    }
+
+    function onWheel(e: WheelEvent) {
+      // accumulate only vertical wheel (trackpads included)
+      processDelta(e.deltaY);
+    }
+
+    // Pointer events support for trackpads and other pointing devices
+    let lastPointerY = 0;
+    let isPointerDown = false;
+
+    function onPointerDown(e: PointerEvent) {
+      lastPointerY = e.clientY;
+      isPointerDown = true;
+      // Optional: capture pointer for better control on touch devices
+      if (e.pointerType === 'touch') {
+        e.target.addEventListener('pointermove', onPointerMove);
+        (e.target as Element).setPointerCapture(e.pointerId);
+      }
+    }
+
+    function onPointerMove(e: PointerEvent) {
+      if (!isPointerDown) return;
+
+      // Calculate delta from pointer movement (similar to wheel deltaY)
+      const currentY = e.clientY;
+      const deltaY = currentY - lastPointerY;
+      lastPointerY = currentY;
+
+      // Only process significant movements to avoid noise
+      if (Math.abs(deltaY) > 0.5) {
+        processDelta(deltaY);
+      }
+    }
+
+    function onPointerUp(e: PointerEvent) {
+      isPointerDown = false;
+      if (e.pointerType === 'touch') {
+        (e.target as Element).releasePointerCapture(e.pointerId);
+      }
     }
 
     const slowFactor = 0.25; // 50% slower feel (applied to smoothing, not amplitude)
@@ -150,6 +193,15 @@ export default function JumpScroller() {
     }
 
     window.addEventListener("wheel", onWheel, { passive: true });
+
+    // Add pointer events for trackpad and touch support
+    if (window.PointerEvent) {
+      window.addEventListener("pointerdown", onPointerDown, { passive: true });
+      window.addEventListener("pointermove", onPointerMove, { passive: true });
+      window.addEventListener("pointerup", onPointerUp, { passive: true });
+      window.addEventListener("pointercancel", onPointerUp, { passive: true }); // treat cancel as up
+    }
+
     // If the user scrolls the page to the bottom, force full progress so the astronaut completes shrink
     function onScroll() {
       try {
@@ -167,6 +219,12 @@ export default function JumpScroller() {
     return () => {
       window.removeEventListener("wheel", onWheel);
       window.removeEventListener("scroll", onScroll);
+      if (window.PointerEvent) {
+        window.removeEventListener("pointerdown", onPointerDown);
+        window.removeEventListener("pointermove", onPointerMove);
+        window.removeEventListener("pointerup", onPointerUp);
+        window.removeEventListener("pointercancel", onPointerUp);
+      }
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
   }, [isCanvasAllowed]);
