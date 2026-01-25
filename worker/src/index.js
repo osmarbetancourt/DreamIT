@@ -1,81 +1,117 @@
 export default {
-  async fetch(request, env, ctx) {
-    const url = new URL(request.url);
-    const objectKey = url.pathname.slice(1);
-
-    // 1. Enterprise CORS: Allow specific origins or * for public, but handle it explicitly
-    // This allows you to block bandwidth theft from other sites
-    const allowedOrigins = ['https://your-app.com', 'http://localhost:3000'];
-    const origin = request.headers.get('Origin');
-    const allowOrigin = allowedOrigins.includes(origin) ? origin : '*'; 
-
-    const corsHeaders = {
-      'Access-Control-Allow-Origin': allowOrigin,
-      'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Range',
-      'Access-Control-Max-Age': '86400',
-    };
-
-    // Handle Preflight
-    if (request.method === 'OPTIONS') {
-      return new Response(null, { headers: corsHeaders });
-    }
-
-    if (request.method !== 'GET' && request.method !== 'HEAD') {
-      return new Response('Method not allowed', { status: 405 });
-    }
-
-    // 2. Optimization: Check if browser already has the file (Conditional GET)
-    // We can't know the ETag without asking R2, but we can do a cheap "HEAD" request first
-    // OR just fetch it and let R2 handle the conditional logic (cheaper/faster in one go)
-    
-    // 3. Range Request Support (Critical for video/audio)
-    const range = request.headers.get('range');
-    
+  async fetch(request, env) {
     try {
-      // Pass the Range header and Conditional headers (If-None-Match) directly to R2
-      const object = await env.MY_BUCKET.get(objectKey, {
-        range: request.headers.get('range'),
-        onlyIf: request.headers, // This passes If-Match / If-None-Match to R2 automatically
-      });
+      const url = new URL(request.url);
+      const key = url.pathname.slice(1); // Remove leading slash to get the R2 key
 
-      if (!object) {
-        return new Response('Not Found', { status: 404 });
-      }
-
-      // R2 "onlyIf" check failed (e.g. file hasn't changed), return 304
-      if (object.status === 304) {
-        return new Response(null, {
-          status: 304,
-          headers: { ...corsHeaders, 'ETag': object.etag }
+      // Only allow GET requests
+      if (request.method !== 'GET') {
+        return new Response('Method not allowed', {
+          status: 405,
+          headers: { 'Allow': 'GET' }
         });
       }
 
-      const headers = new Headers();
-      object.writeHttpMetadata(headers);
-      headers.set('etag', object.etag); // IMPORTANT: R2 doesn't set this by default
-      
-      // Merge CORS headers
-      Object.keys(corsHeaders).forEach(key => headers.set(key, corsHeaders[key]));
-
-      // Set explicit cache for CDN and Browser
-      // public = allow CDN to cache. immutable = file never changes (if true)
-      headers.set('Cache-Control', 'public, max-age=31536000, immutable');
-
-      // 4. Handle Partial Content (206) vs Full Content (200)
-      const status = object.range ? 206 : 200;
-      if (object.range) {
-        headers.set('Content-Range', `bytes ${object.range.offset}-${object.range.end}/${object.size}`);
-        headers.set('Content-Length', object.range.length);
+      // Handle CORS preflight (OPTIONS)
+      if (request.method === 'OPTIONS') {
+        return new Response(null, {
+          status: 200,
+          headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET',
+            'Access-Control-Allow-Headers': 'Content-Type, Range',
+            'Access-Control-Max-Age': '86400' // Cache preflight for 24 hours
+          }
+        });
       }
 
-      return new Response(object.body, {
-        headers,
-        status
-      });
+      // Fetch object from R2 with conditional and range options
+      const getOptions = {};
 
-    } catch (e) {
-      return new Response('Error fetching object', { status: 500 });
+      // Conditional GET: Check If-None-Match header
+      const ifNoneMatch = request.headers.get('If-None-Match');
+      if (ifNoneMatch) {
+        getOptions.onlyIf = { etagMatches: ifNoneMatch.replace(/"/g, '') }; // Remove quotes if present
+      }
+
+      // Range requests: Parse Range header (e.g., "bytes=0-1023")
+      const rangeHeader = request.headers.get('Range');
+      if (rangeHeader) {
+        const rangeMatch = rangeHeader.match(/^bytes=(\d+)-(\d*)$/);
+        if (rangeMatch) {
+          const start = parseInt(rangeMatch[1], 10);
+          const end = rangeMatch[2] ? parseInt(rangeMatch[2], 10) : undefined;
+          if (end !== undefined) {
+            getOptions.range = { offset: start, length: end - start + 1 };
+          } else {
+            getOptions.range = { offset: start };
+          }
+        }
+      }
+
+      const object = await env.MY_BUCKET.get(key, getOptions);
+
+      // Handle 404 if object not found
+      if (!object) {
+        return new Response('Not Found', {
+          status: 404,
+          headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Cache-Control': 'public, max-age=300' // Short cache for 404s
+          }
+        });
+      }
+
+      // If conditional GET matches, return 304 Not Modified
+      if (object.body === undefined) { // R2 sets body to undefined on conditional match
+        return new Response(null, {
+          status: 304,
+          headers: {
+            'ETag': object.httpEtag,
+            'Access-Control-Allow-Origin': '*',
+            'Cache-Control': 'public, max-age=3600' // 1 hour cache
+          }
+        });
+      }
+
+      // Build response headers
+      const headers = new Headers();
+
+      // CORS headers
+      headers.set('Access-Control-Allow-Origin', '*');
+      headers.set('Access-Control-Allow-Methods', 'GET');
+      headers.set('Access-Control-Allow-Headers', 'Content-Type, Range');
+
+      // Caching: Set Cache-Control based on content type (e.g., longer for images/models)
+      const isStaticAsset = /\.(jpg|jpeg|png|gif|webp|glb|gltf|obj|mp4|webm)$/i.test(key);
+      headers.set('Cache-Control', isStaticAsset ? 'public, max-age=31536000' : 'public, max-age=31536000'); // 1 year for assets, 1h for others
+
+      // ETag for conditional requests
+      headers.set('ETag', object.httpEtag);
+
+      // Content-Type and other metadata
+      object.writeHttpMetadata(headers); // Applies contentType, etc.
+
+      // Handle partial content for range requests
+      if (rangeHeader && object.range) {
+        headers.set('Content-Range', `bytes ${object.range.offset}-${object.range.offset + object.range.length - 1}/${object.size}`);
+        return new Response(object.body, {
+          status: 206, // Partial Content
+          headers
+        });
+      }
+
+      return new Response(object.body, { headers });
+    } catch (error) {
+      // Error handling: Log and return 500
+      console.error('Worker error:', error);
+      return new Response('Internal Server Error', {
+        status: 500,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Cache-Control': 'no-cache'
+        }
+      });
     }
-  },
+  }
 };
