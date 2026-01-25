@@ -34,7 +34,7 @@ export interface SolarSystemState {
 
 export type PlanetType = 'terrestrial' | 'gas-giant' | 'icy' | 'volcanic' | 'exotic';
 
-export type PlanetFeature = 'atmosphere' | 'oceans' | 'rings' | 'moons' | 'craters' | 'volcanoes' | 'aurora' | 'magnetic-field';
+export type PlanetFeature = 'atmosphere' | 'oceans' | 'rings' | 'moons' | 'craters' | 'volcanoes' | 'aurora' | 'magnetic-field' | 'clouds';
 
 export interface PlanetPreviewPreset {
   type: PlanetType;
