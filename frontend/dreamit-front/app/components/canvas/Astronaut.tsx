@@ -109,7 +109,7 @@ export default function Astronaut({
   if (!isCanvasAllowed) return null;
 
   // Optimized Draco + metal-rough converted asset placed in R2
-  const glbPath = "https://dreamit.software/dreamit-page/astronaut-draco.glb";
+  const glbPath = "https://dreamit-assets-worker.oaba-dev.workers.dev/dreamit-page/astronaut-draco.glb";
   // load model
   const { scene, animations } = useGLTF(glbPath) as any;
   const { actions, mixer, names } = useAnimations(animations, group as any);
@@ -1563,4 +1563,4 @@ export default function Astronaut({
   );
 }
 
-useGLTF.preload("https://dreamit.software/dreamit-page/astronaut-draco.glb");
+useGLTF.preload("https://dreamit-assets-worker.oaba-dev.workers.dev/dreamit-page/astronaut-draco.glb");

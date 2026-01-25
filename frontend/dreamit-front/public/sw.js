@@ -1,8 +1,8 @@
 const CACHE_NAME = 'dreamit-v1.0.0';
 const STATIC_CACHE_URLS = [
-  'https://dreamit.software/dreamit-page/8k_sun.jpg',
-  'https://dreamit.software/dreamit-page/2k_sun.webp',
-  'https://dreamit.software/dreamit-page/astronaut-draco.glb',
+  'https://dreamit-assets-worker.oaba-dev.workers.dev/8k_sun.jpg',
+  'https://dreamit-assets-worker.oaba-dev.workers.dev/2k_sun.webp',
+  'https://dreamit-assets-worker.oaba-dev.workers.dev/astronaut-draco.glb',
   // Add other critical R2 assets as needed
 ];
 

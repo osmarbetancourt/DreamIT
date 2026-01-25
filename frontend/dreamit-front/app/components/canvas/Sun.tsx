@@ -15,7 +15,7 @@ export default function Sun({ sunRef: externalSunRef }: SunProps) {
   const [startTime] = useState(() => performance.now());
 
   // Load NASA texture
-  const sunMap = useTexture('https://dreamit.software/dreamit-page/2k_sun.webp');
+  const sunMap = useTexture('https://dreamit-assets-worker.oaba-dev.workers.dev/dreamit-page/2k_sun.webp');
 
   // Delay before sun appears (after hero crawl ends)
   const SUN_DELAY = 11;

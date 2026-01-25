@@ -10,7 +10,7 @@ import { mockPlanets } from "../../data/mockPlanets";
 import * as THREE from "three";
 
 function PreloadTextures() {
-  const texture = useTexture('https://dreamit.software/dreamit-page/2k_sun.webp');
+  const texture = useTexture('https://dreamit-assets-worker.oaba-dev.workers.dev/dreamit-page/2k_sun.webp');
   return null;
 }
 
