@@ -31,6 +31,7 @@ export default function Planet({ config, state, onHover, onClick, onEmergenceCom
   // Data box animation state
   const [boxAnimationTriggered, setBoxAnimationTriggered] = useState(false);
   const [hasLoggedTransition, setHasLoggedTransition] = useState(false);
+  const [boxOutroTriggered, setBoxOutroTriggered] = useState(false);
 
   // Sweeping animation state
   const [isSweeping, setIsSweeping] = useState(false);
@@ -44,6 +45,17 @@ export default function Planet({ config, state, onHover, onClick, onEmergenceCom
       setBoxAnimationTriggered(true);
     }
   }, [showDataBox, boxAnimationTriggered]);
+
+  // Hide box after outro animation completes
+  useEffect(() => {
+    if (boxOutroTriggered) {
+      const timer = setTimeout(() => {
+        setShowDataBox(false);
+        setBoxOutroTriggered(false);
+      }, 1500); // 1.5s matches the outro animation duration
+      return () => clearTimeout(timer);
+    }
+  }, [boxOutroTriggered]);
 
   // Hover state
   const [hovered, setHovered] = useState(false);
@@ -81,8 +93,8 @@ export default function Planet({ config, state, onHover, onClick, onEmergenceCom
     if (emergenceCompleted && scrollProgress > 0 && !hasLoggedFirstScroll) {
       console.log(`🚀 Planet ${config.name} - FIRST SCROLL DETECTED! scrollProgress: ${scrollProgress}`);
       setHasLoggedFirstScroll(true);
-      // Hide data box immediately on first scroll
-      setShowDataBox(false);
+      // Trigger box outro animation on first scroll
+      setBoxOutroTriggered(true);
     }
 
     // Handle emerging animation (cinematic entrance)
@@ -317,6 +329,34 @@ export default function Planet({ config, state, onHover, onClick, onEmergenceCom
                   filter: none;
                 }
               }
+              @keyframes boxDematerialize {
+                0% { width: 280px; height: 300px; opacity: 1; }
+                50% { width: 280px; height: 2px; opacity: 1; }
+                100% { width: 0; height: 2px; opacity: 0; }
+              }
+              @keyframes textEncrypt {
+                0% {
+                  opacity: 1;
+                  text-shadow: none;
+                  filter: none;
+                }
+                50% {
+                  opacity: 0.7;
+                  text-shadow:
+                    0 0 3px rgba(255,255,255,0.6),
+                    0 0 6px rgba(255,255,255,0.4),
+                    0 0 9px rgba(255,255,255,0.2);
+                  filter: blur(1px) contrast(1.5);
+                }
+                100% {
+                  opacity: 0;
+                  text-shadow:
+                    0 0 5px rgba(255,255,255,0.8),
+                    0 0 10px rgba(255,255,255,0.6),
+                    0 0 15px rgba(255,255,255,0.4);
+                  filter: blur(2px) contrast(2);
+                }
+              }
             `
           }} />
           <div style={{
@@ -336,7 +376,8 @@ export default function Planet({ config, state, onHover, onClick, onEmergenceCom
             backdropFilter: 'blur(1px)',
             opacity: state === 'transitioning' ? 0 : 1,
             transition: 'opacity 1s ease-out',
-            ...(boxAnimationTriggered && { animation: 'boxMaterialize 1.5s ease-out forwards' }),
+            ...(boxAnimationTriggered && !boxOutroTriggered && { animation: 'boxMaterialize 1.5s ease-out forwards' }),
+            ...(boxOutroTriggered && { animation: 'boxDematerialize 1.5s ease-out forwards' }),
           }}>
             <div style={{
               position: 'absolute',
@@ -356,12 +397,12 @@ export default function Planet({ config, state, onHover, onClick, onEmergenceCom
             }}>
               SCAN COMPLETE
             </h3>
-            <h4 style={{ margin: '0 0 8px 0', fontSize: '18px', color: '#ffffff', animation: 'textDecrypt 1.2s ease-out 1.8s both' }}>{config.name}</h4>
-            <p style={{ margin: '0 0 8px 0', fontSize: '14px', color: '#00ff00', animation: 'textDecrypt 1.2s ease-out 1.8s both' }}>
+            <h4 style={{ margin: '0 0 8px 0', fontSize: '18px', color: '#ffffff', animation: boxOutroTriggered ? 'textEncrypt 1.2s ease-out both' : 'textDecrypt 1.2s ease-out 1.8s both' }}>{config.name}</h4>
+            <p style={{ margin: '0 0 8px 0', fontSize: '14px', color: '#00ff00', animation: boxOutroTriggered ? 'textEncrypt 1.2s ease-out both' : 'textDecrypt 1.2s ease-out 1.8s both' }}>
               {CATEGORY_ICONS[config.scanningStats.projectType]?.icon} {CATEGORY_ICONS[config.scanningStats.projectType]?.name}
             </p>
-            <p style={{ margin: '0 0 8px 0', fontSize: '14px', color: '#ffffff', animation: 'textDecrypt 1.2s ease-out 1.8s both' }}>TECH STACK:</p>
-            <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', flexWrap: 'wrap', animation: 'textDecrypt 1.2s ease-out 1.8s both' }}>
+            <p style={{ margin: '0 0 8px 0', fontSize: '14px', color: '#ffffff', animation: boxOutroTriggered ? 'textEncrypt 1.2s ease-out both' : 'textDecrypt 1.2s ease-out 1.8s both' }}>TECH STACK:</p>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', flexWrap: 'wrap', animation: boxOutroTriggered ? 'textEncrypt 1.2s ease-out both' : 'textDecrypt 1.2s ease-out 1.8s both' }}>
               {config.scanningStats.techStack.map(tech => {
                 const icon = TECH_STACK_ICONS[tech];
                 return icon ? (
@@ -384,13 +425,13 @@ export default function Planet({ config, state, onHover, onClick, onEmergenceCom
                 ) : null;
               })}
             </div>
-            <p style={{ margin: '8px 0 8px 0', fontSize: '14px', color: '#00ff00', animation: 'textDecrypt 1.2s ease-out 1.8s both' }}>
+            <p style={{ margin: '8px 0 8px 0', fontSize: '14px', color: '#00ff00', animation: boxOutroTriggered ? 'textEncrypt 1.2s ease-out both' : 'textDecrypt 1.2s ease-out 1.8s both' }}>
               {CATEGORY_ICONS[config.scanningStats.status]?.icon} {CATEGORY_ICONS[config.scanningStats.status]?.name}
             </p>
-            <p style={{ margin: '0', fontSize: '14px', color: '#ffffff', animation: 'textDecrypt 1.2s ease-out 1.8s both' }}>
+            <p style={{ margin: '0', fontSize: '14px', color: '#ffffff', animation: boxOutroTriggered ? 'textEncrypt 1.2s ease-out both' : 'textDecrypt 1.2s ease-out 1.8s both' }}>
               {CATEGORY_ICONS[config.scanningStats.targetUsers]?.icon} {CATEGORY_ICONS[config.scanningStats.targetUsers]?.name}
             </p>
-            <div style={{ marginTop: '10px', textAlign: 'center', animation: 'textDecrypt 1.2s ease-out 1.8s both' }}>
+            <div style={{ marginTop: '10px', textAlign: 'center', animation: boxOutroTriggered ? 'textEncrypt 1.2s ease-out both' : 'textDecrypt 1.2s ease-out 1.8s both' }}>
               <div style={{ fontSize: '12px', color: '#00ff00', marginBottom: '5px' }}>
                 SIGNAL STRENGTH
               </div>
