@@ -73,7 +73,14 @@ export default function PlanetPreview({
     hasRings: preset.features.includes('rings'),
     hasGlow: true, // Always glow for preview
     orbit: { radius: 0, speed: 1, inclination: 0, initialAngle: 0 },
-    revealAt: 0
+    revealAt: 0,
+    scanningStats: {
+      projectType: 'web-app',
+      techStack: ['Next.js', 'React', 'TypeScript'],
+      targetUsers: 'b2c-consumers',
+      complexity: 'full-featured',
+      status: 'active-development'
+    }
   };
 
   return (
