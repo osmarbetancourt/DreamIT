@@ -4,23 +4,32 @@ export interface PlanetConfig {
   name: string;
   projectId: string;
 
-  // Simplified 5 attributes
-  size: number; // 0.5-2.0 scale multiplier
-  textureName: string; // NASA texture name from available list
-  tintColor?: string; // Optional hex color overlay
-  hasRings: boolean; // Multi-platform indicator
-  hasGlow: boolean; // Active project indicator
+  // === VISUAL PROPERTIES (affect 3D planet appearance) ===
+  size: number; // VISUAL: Planet scale multiplier (0.5-2.0)
+  textureName: string; // VISUAL: NASA texture filename
+  tintColor?: string; // VISUAL: Optional hex color overlay
+  hasRings: boolean; // VISUAL: Shows orbital rings
+  hasGlow: boolean; // VISUAL: Emissive glow effect
 
-  // Orbital mechanics (besides rotation/translation)
+  // === PHYSICS PROPERTIES (affect movement) ===
   orbit: {
-    radius: number; // Distance from sun
-    speed: number; // Orbital speed multiplier
-    inclination: number; // Orbital plane tilt (degrees)
-    initialAngle: number; // Starting position (degrees)
+    radius: number; // PHYSICS: Distance from sun
+    speed: number; // PHYSICS: Orbital speed multiplier
+    inclination: number; // PHYSICS: Orbital plane tilt (degrees)
+    initialAngle: number; // PHYSICS: Starting position (degrees)
   };
 
-  // Reveal timing
-  revealAt: number; // Scroll progress 0-1 when this planet appears
+  // === TIMING PROPERTIES (affect reveal sequence) ===
+  revealAt: number; // TIMING: Scroll progress 0-1 when this planet appears
+
+  // === SCANNING DATA (pure informational, no visual impact) ===
+  scanningStats: {
+    projectType: 'web-app' | 'mobile-app' | 'enterprise' | 'ai-solution' | 'game' | 'api';
+    techStack: string[]; // Array of tech names for icon display
+    targetUsers: 'b2b-enterprise' | 'b2c-consumers' | 'internal-tools' | 'global-scale';
+    complexity: 'minimal-viable' | 'full-featured' | 'enterprise-grade' | 'cutting-edge';
+    status: 'active-development' | 'production-ready' | 'recently-completed' | 'prototype';
+  };
 }
 
 export interface SolarSystemState {

@@ -48,6 +48,26 @@ body {
 }
 
 /* Persist final visible state after loader fully finishes */
+@keyframes beamSweep {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(96px); }
+}
+@keyframes beamSweepReverse {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(-96px); }
+}
+@keyframes beamFlicker {
+  0% { opacity: 0.5; }
+  100% { opacity: 1; }
+}
+@keyframes dataConvergeBottom {
+  0% { height: 0px; }
+  100% { height: 111px; }
+}
+@keyframes dataConvergeTop {
+  0% { height: 0px; }
+  100% { height: 111px; }
+}
 .dreamit-loaded .dreamit-hidden-for-loader {
   transform: translateY(0);
   opacity: 1;

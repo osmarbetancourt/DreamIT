@@ -89,7 +89,6 @@ export default function ProjectsScene() {
       // For warped (cinematic), listen to jump progress events
       console.log('🎧 Listening for dreamit:jumpProgress events on projects page');
       const onProgress = (e: CustomEvent) => {
-        console.log('📈 Received jumpProgress:', e.detail.progress);
         setScrollProgress(e.detail.progress);
       };
       window.addEventListener("dreamit:jumpProgress", onProgress as EventListener);

@@ -11,7 +11,7 @@ export default function ContactPage({ params }: { params: { lang: string } }) {
         {/* Reuse the CTA component as an inline form opener */}
         <ContactCTA lang={lang} />
 
-        <div className="mt-10 text-sm text-white/70">Or email us directly: hello@dreamit.example</div>
+        <div className="mt-10 text-sm text-white/70">Or email us directly: osmar.betancourt@dreamit.example</div>
       </div>
     </div>
   );

@@ -15,7 +15,7 @@ export default function ContactCTA({ lang = "en" }: { lang?: string }) {
     // Simple mailto fallback: opens user's mail client with prefilled body
     const subject = encodeURIComponent("DreamIT enquiry from " + (name || "website"));
     const body = encodeURIComponent(`Name: ${name}\nEmail: ${email}\nPhone: ${phone}\n\nMessage:\n${message}`);
-    window.location.href = `mailto:hello@dreamit.example?subject=${subject}&body=${body}`;
+    window.location.href = `mailto:osmar.betancourt@dreamit.example?subject=${subject}&body=${body}`;
   };
 
   const label = lang === "es" ? "Contáctanos" : "Contact";

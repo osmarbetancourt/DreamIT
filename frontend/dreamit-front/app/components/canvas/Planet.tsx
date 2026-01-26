@@ -1,10 +1,11 @@
 "use client";
 import React, { useRef, useMemo, useState, useEffect } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
-import { Ring } from "@react-three/drei";
+import { Ring, Html } from "@react-three/drei";
 import * as THREE from "three";
 import { PlanetConfig } from "@/types/planet";
 import { usePlanetTexture } from "./PlanetPreloader";
+import { TECH_STACK_ICONS, CATEGORY_ICONS } from "@/utils/techIcons";
 
 interface PlanetProps {
   config: PlanetConfig;
@@ -27,8 +28,28 @@ export default function Planet({ config, state, onHover, onClick, onEmergenceCom
   const [maxScrollProgress, setMaxScrollProgress] = useState(0);
   const orbitStartTimeRef = useRef<number | null>(null);
 
+  // Data box animation state
+  const [boxAnimationTriggered, setBoxAnimationTriggered] = useState(false);
+  const [hasLoggedTransition, setHasLoggedTransition] = useState(false);
+
+  // Sweeping animation state
+  const [isSweeping, setIsSweeping] = useState(false);
+  const sweepStartTimeRef = useRef<number | null>(null);
+  const [sweepProgress, setSweepProgress] = useState(0);
+  const [showDataBox, setShowDataBox] = useState(false);
+
+  // Trigger box animation when data box is shown
+  useEffect(() => {
+    if (showDataBox && !boxAnimationTriggered) {
+      setBoxAnimationTriggered(true);
+    }
+  }, [showDataBox, boxAnimationTriggered]);
+
   // Hover state
   const [hovered, setHovered] = useState(false);
+
+  // First scroll logging
+  const [hasLoggedFirstScroll, setHasLoggedFirstScroll] = useState(false);
 
   // Reset orbit start time when not orbiting
   useEffect(() => {
@@ -55,6 +76,14 @@ export default function Planet({ config, state, onHover, onClick, onEmergenceCom
 
     // Update max scroll progress for one-way transition
     setMaxScrollProgress(prev => Math.max(prev, scrollProgress));
+
+    // Log first scroll after emergence
+    if (emergenceCompleted && scrollProgress > 0 && !hasLoggedFirstScroll) {
+      console.log(`🚀 Planet ${config.name} - FIRST SCROLL DETECTED! scrollProgress: ${scrollProgress}`);
+      setHasLoggedFirstScroll(true);
+      // Hide data box immediately on first scroll
+      setShowDataBox(false);
+    }
 
     // Handle emerging animation (cinematic entrance)
     if (state === 'emerging') {
@@ -86,17 +115,50 @@ export default function Planet({ config, state, onHover, onClick, onEmergenceCom
       // Once emerged, switch to normal behavior
       if (progress >= 1 && !emergenceCompleted) {
         setEmergenceCompleted(true);
-        console.log(`🌌 Planet ${config.id} emergence animation completed!`);
+        console.log(`🌌 Planet ${config.name} emergence animation completed!`);
         onEmergenceComplete?.(config.id);
+        // Start sweeping animation
+        setIsSweeping(true);
+        sweepStartTimeRef.current = performance.now();
       }
+
       return; // Skip normal scaling during emergence
+    }
+
+    // Handle sweeping animation
+    if (isSweeping && sweepStartTimeRef.current) {
+      const elapsed = (performance.now() - sweepStartTimeRef.current) / 1000;
+      const speeds = [0.9, 0.7, 0.5, 0.5];
+      let cumulativeTime = 0;
+      let currentSpeedIndex = 0;
+      for (let i = 0; i < speeds.length; i++) {
+        cumulativeTime += speeds[i];
+        if (elapsed < cumulativeTime) {
+          currentSpeedIndex = i;
+          break;
+        }
+      }
+      const segmentStartTime = cumulativeTime - speeds[currentSpeedIndex];
+      const progressInSegment = (elapsed - segmentStartTime) / speeds[currentSpeedIndex];
+      const totalDuration = speeds.reduce((a, b) => a + b, 0);
+      const newSweepProgress = Math.min(elapsed / totalDuration, 1);
+      setSweepProgress(newSweepProgress);
+      if (newSweepProgress >= 1) {
+        setIsSweeping(false);
+        sweepStartTimeRef.current = null;
+        setShowDataBox(true);
+      }
     }
 
     // Handle transitioning animation (scroll-driven movement to orbit position)
     if (state === 'transitioning') {
+      if (!hasLoggedTransition) {
+        console.log(`🌌 Planet ${config.name} entering TRANSITIONING state`);
+        setHasLoggedTransition(true);
+      }
+
       const transitionProgress = Math.max(0, maxScrollProgress / 1.0);
       const easedProgress = Math.sin(transitionProgress * Math.PI / 2);
-      console.log('🌌 DragonLog transitioning:', easedProgress, 'maxScrollProgress:', maxScrollProgress);
       const emergenceEnd = new THREE.Vector3(0, -0.3, 3);
       const orbitStart = new THREE.Vector3(config.orbit.radius * 1.5, 1.8, -17);
       groupRef.current.position.lerpVectors(emergenceEnd, orbitStart, easedProgress);
@@ -200,6 +262,158 @@ export default function Planet({ config, state, onHover, onClick, onEmergenceCom
         <primitive object={PlanetMaterial} />
       </mesh>
 
+      {/* Sweeping beams */}
+      {isSweeping && (
+        <>
+          <mesh position={[0, finalScale - sweepProgress * finalScale * 2, 0.01]}>
+            <boxGeometry args={[finalScale * 2.4, 0.02, 0.02]} />
+            <meshBasicMaterial color="#00ff00" />
+          </mesh>
+          <mesh position={[0, -finalScale + sweepProgress * finalScale * 2, 0.01]}>
+            <boxGeometry args={[finalScale * 2.4, 0.02, 0.02]} />
+            <meshBasicMaterial color="#00ff00" />
+          </mesh>
+        </>
+      )}
+
+      {/* Data box */}
+      {showDataBox && (
+        <Html position={[finalScale * 1.6, 0, 0.01]} center>
+          <style dangerouslySetInnerHTML={{
+            __html: `
+              @keyframes scanLine {
+                0% { left: -100%; }
+                100% { left: 100%; }
+              }
+              @keyframes signalPulse {
+                0%, 100% { opacity: 0.7; transform: scaleY(1); }
+                50% { opacity: 1; transform: scaleY(1.2); }
+              }
+              @keyframes boxMaterialize {
+                0% { width: 0; height: 2px; opacity: 1; }
+                50% { width: 280px; height: 2px; opacity: 1; }
+                100% { width: 280px; height: 300px; opacity: 1; }
+              }
+              @keyframes textDecrypt {
+                0% {
+                  opacity: 0;
+                  text-shadow:
+                    0 0 5px rgba(255,255,255,0.8),
+                    0 0 10px rgba(255,255,255,0.6),
+                    0 0 15px rgba(255,255,255,0.4);
+                  filter: blur(2px) contrast(2);
+                }
+                50% {
+                  opacity: 0.7;
+                  text-shadow:
+                    0 0 3px rgba(255,255,255,0.6),
+                    0 0 6px rgba(255,255,255,0.4),
+                    0 0 9px rgba(255,255,255,0.2);
+                  filter: blur(1px) contrast(1.5);
+                }
+                100% {
+                  opacity: 1;
+                  text-shadow: none;
+                  filter: none;
+                }
+              }
+            `
+          }} />
+          <div style={{
+            width: '280px',
+            height: '300px',
+            background: 'rgba(0, 20, 0, 0.75)',
+            border: '2px solid #00ff00',
+            boxShadow: '0 0 25px #00ff00, inset 0 0 25px rgba(0, 255, 0, 0.2)',
+            padding: '20px',
+            borderRadius: '5px',
+            color: '#ffffff',
+            fontFamily: '"Courier New", monospace',
+            fontSize: '14px',
+            textAlign: 'center',
+            overflow: 'hidden',
+            position: 'relative',
+            backdropFilter: 'blur(1px)',
+            opacity: state === 'transitioning' ? 0 : 1,
+            transition: 'opacity 1s ease-out',
+            ...(boxAnimationTriggered && { animation: 'boxMaterialize 1.5s ease-out forwards' }),
+          }}>
+            <div style={{
+              position: 'absolute',
+              top: '5px',
+              left: '10px',
+              right: '10px',
+              height: '2px',
+              background: 'linear-gradient(90deg, transparent, #00ff00, transparent)',
+              animation: 'scanLine 2s infinite',
+            }} />
+            <h3 style={{
+              margin: '0 0 10px 0',
+              fontSize: '16px',
+              color: '#00ff00',
+              textShadow: '0 0 10px #00ff00',
+              letterSpacing: '1px'
+            }}>
+              SCAN COMPLETE
+            </h3>
+            <h4 style={{ margin: '0 0 8px 0', fontSize: '18px', color: '#ffffff', animation: 'textDecrypt 1.2s ease-out 1.8s both' }}>{config.name}</h4>
+            <p style={{ margin: '0 0 8px 0', fontSize: '14px', color: '#00ff00', animation: 'textDecrypt 1.2s ease-out 1.8s both' }}>
+              {CATEGORY_ICONS[config.scanningStats.projectType]?.icon} {CATEGORY_ICONS[config.scanningStats.projectType]?.name}
+            </p>
+            <p style={{ margin: '0 0 8px 0', fontSize: '14px', color: '#ffffff', animation: 'textDecrypt 1.2s ease-out 1.8s both' }}>TECH STACK:</p>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', flexWrap: 'wrap', animation: 'textDecrypt 1.2s ease-out 1.8s both' }}>
+              {config.scanningStats.techStack.map(tech => {
+                const icon = TECH_STACK_ICONS[tech];
+                return icon ? (
+                  <div key={tech} style={{
+                    width: '28px',
+                    height: '28px',
+                    background: icon.color === '#000000' ? 'rgba(255, 255, 255, 0.2)' : 'rgba(255, 255, 255, 0.1)',
+                    border: '1px solid #00ff00',
+                    borderRadius: '2px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}>
+                    <img src={icon.icon} alt={tech} style={{
+                      width: '20px',
+                      height: '20px',
+                      filter: icon.color === '#000000' ? 'drop-shadow(0 0 3px rgba(255, 255, 255, 0.8))' : 'none'
+                    }} />
+                  </div>
+                ) : null;
+              })}
+            </div>
+            <p style={{ margin: '8px 0 8px 0', fontSize: '14px', color: '#00ff00', animation: 'textDecrypt 1.2s ease-out 1.8s both' }}>
+              {CATEGORY_ICONS[config.scanningStats.status]?.icon} {CATEGORY_ICONS[config.scanningStats.status]?.name}
+            </p>
+            <p style={{ margin: '0', fontSize: '14px', color: '#ffffff', animation: 'textDecrypt 1.2s ease-out 1.8s both' }}>
+              {CATEGORY_ICONS[config.scanningStats.targetUsers]?.icon} {CATEGORY_ICONS[config.scanningStats.targetUsers]?.name}
+            </p>
+            <div style={{ marginTop: '10px', textAlign: 'center', animation: 'textDecrypt 1.2s ease-out 1.8s both' }}>
+              <div style={{ fontSize: '12px', color: '#00ff00', marginBottom: '5px' }}>
+                SIGNAL STRENGTH
+              </div>
+              <div style={{
+                width: '100%',
+                height: '4px',
+                background: 'rgba(255, 255, 255, 0.2)',
+                borderRadius: '2px',
+                overflow: 'hidden'
+              }}>
+                <div style={{
+                  width: `${(config.id.charCodeAt(0) + config.id.charCodeAt(1 || 0)) % 80 + 20}%`,
+                  height: '100%',
+                  background: 'linear-gradient(90deg, #00ff00, #00ffff)',
+                  borderRadius: '2px',
+                  animation: 'signalPulse 3s ease-in-out infinite'
+                }} />
+              </div>
+            </div>
+          </div>
+        </Html>
+      )}
+
       {/* Real point light for glowing planets (like the Sun) */}
       {config.hasGlow && (
         <pointLight 
@@ -221,6 +435,7 @@ export default function Planet({ config, state, onHover, onClick, onEmergenceCom
           <meshBasicMaterial color="#ffffff" transparent opacity={0.5} />
         </mesh>
       )}
+
     </group>
   );
 }

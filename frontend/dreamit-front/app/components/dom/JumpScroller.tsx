@@ -49,7 +49,7 @@ export default function JumpScroller() {
       if (useCinematicStore.getState().isLocked && !pathname.includes('projects')) return;
 
       if (pathname.includes('projects')) {
-        console.log('🔓 Scroll enabled on projects page - processing delta');
+        // Scroll enabled on projects page - processing delta
       }
 
       // limit large deltas and use a gentle multiplier so only a few scroll ticks are needed
