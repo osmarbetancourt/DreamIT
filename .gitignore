@@ -37,8 +37,8 @@ next-env.d.ts
 backend/google_service_account.json
 *.env
 .vscode/
-CV_Osmar_Betancourt.md
 cv-style.css
 CV_Osmar_Betancourt.pdf
 */node_modules
 */.wrangler
+mail_example.py

@@ -41,6 +41,11 @@ export default function ProjectsScene() {
     // TODO: Navigate to project details or show close-up
   };
 
+  const handleScrollReset = () => {
+    console.log('🔄 Resetting scroll progress for next planet');
+    setScrollProgress(0);
+  };
+
   useEffect(() => {
     if (warped) setVisible(true);
   }, [warped]);
@@ -122,6 +127,7 @@ export default function ProjectsScene() {
             onPlanetHover={handlePlanetHover}
             onPlanetClick={handlePlanetClick}
             sunRef={sunRef}
+            onScrollReset={handleScrollReset}
           />
         </group>
 
