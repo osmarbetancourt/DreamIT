@@ -41,6 +41,15 @@ export interface SolarSystemState {
   sunIntensity: number; // For dynamic lighting
 }
 
+export type PlanetPhase =
+  | 'idle'
+  | 'emerging'
+  | 'sweeping'
+  | 'scanning'
+  | 'dismissing'
+  | 'gliding'
+  | 'orbiting';
+
 export type PlanetType = 'terrestrial' | 'gas-giant' | 'icy' | 'volcanic' | 'exotic';
 
 export type PlanetFeature = 'atmosphere' | 'oceans' | 'rings' | 'moons' | 'craters' | 'volcanoes' | 'aurora' | 'magnetic-field' | 'clouds';

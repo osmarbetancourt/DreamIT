@@ -67,6 +67,8 @@ AI Full Stack Engineer with 5+ years of experience specializing in integration a
       <img src="https://cdn.simpleicons.org/nextdotjs/000000" height="18" style="vertical-align:middle" alt="Next.js Logo"/> <b>Next.js</b><br>
       <img src="https://cdn.simpleicons.org/typescript/3178C6" height="18" style="vertical-align:middle" alt="TypeScript Logo"/> <b>TypeScript</b><br>
       <img src="https://cdn.simpleicons.org/javascript/F7DF1E" height="18" style="vertical-align:middle" alt="JavaScript Logo"/> <b>JavaScript</b><br>
+      <img src="https://cdn.simpleicons.org/nodedotjs/339933" height="18" style="vertical-align:middle" alt="Node.js Logo"/> <b>Node.js</b><br>
+      <img src="https://cdn.simpleicons.org/express/000000" height="18" style="vertical-align:middle" alt="Express Logo"/> <b>Express</b><br>
       <img src="https://cdn.simpleicons.org/huggingface/fcc419" height="18" style="vertical-align:middle" alt="HuggingFace Logo"/> <b>Hugging Face Agents (Certified)</b><br>
       <img src="https://cdn.simpleicons.org/django/092E20" height="18" style="vertical-align:middle" alt="Django Logo"/> <b>Django</b><br>
       <img src="https://cdn.simpleicons.org/github/181717" height="18" style="vertical-align:middle" alt="GitHub Logo"/> <b>Git & GitHub</b><br>
@@ -100,9 +102,9 @@ AI Full Stack Engineer with 5+ years of experience specializing in integration a
 ---
 
 ## 💼 Professional Experience
-**Founder**
-_DreamIT Software Development Solutions_
-2026 (January) – Present
+**Founder**  
+_DreamIT_  
+2026 (January) – Present  
 - Founded a software development and IT consulting agency specializing in B2B and B2C solutions with modern and scalable architectures and infrastructures.
 - Provide end-to-end services including software development, cloud architecture design, DevSecOps implementation, and AI integration for clients across 2 different industries.
 
@@ -126,36 +128,3 @@ _Solutions for Everyone S4E_
 - Led and coordinated technical projects using agile methodologies (Kanban and Scrum) to ensure project continuity and timely delivery.
 - Automated key software creation processes, reducing delivery time from 30 hours to 2 hours and significantly increasing team efficiency.
 - Managed successful Jira and AWS integrations, collaborating with cross-functional teams.
-
----
-
-## 🏅 Certifications
-
-<table width="100%">
-  <tr>
-    <td valign="top" width="33%" style="vertical-align:top; text-align:left;">
-      <ul>
-        <li>Hugging Face Certified: Large Language Models (LLM) Course</li>
-        <li>Hugging Face Certified: Model Context Protocol (MCP) Course</li>
-        <li>Hugging Face Certified: Agents Course</li>
-      </ul>
-    </td>
-    <td valign="top" width="33%" style="vertical-align:top; text-align:left;">
-      <ul>
-        <li>Datacamp Associate AI Engineer for Developers</li>
-        <li>Datacamp Data Engineer in Python</li>
-        <li>Datacamp Professional Data Engineer in Python</li>
-        <li>Datacamp Developing Large Language Models</li>
-      </ul>
-    </td>
-    <td valign="top" width="33%" style="vertical-align:top; text-align:left;">
-      <ul>
-        <li>Atlassian Certified in Managing Jira Projects for Data Center</li>
-        <li>Atlassian Certified in Managing Jira Projects for Cloud</li>
-        <li><sub>+50 more IT/AI certifications upon request</sub></li>
-      </ul>
-    </td>
-  </tr>
-</table>
-
----
