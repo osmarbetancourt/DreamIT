@@ -16,7 +16,7 @@ interface SolarSystemProps {
 }
 
 const FIRST_REVEAL_DELAY_MS = 15000; // dramatic intro for planet 0
-const REVEAL_DELAY_MS = 3000; // shorter anticipation beat for planets 1, 2, ...
+const REVEAL_DELAY_MS = 1200; // shorter anticipation beat for planets 1, 2, ...
 const DISMISS_DURATION_MS = 1500; // matches box dematerialize keyframe
 // How many pixels of wheel/touch scroll fill the active planet's 0..1 glide.
 const SCROLL_BUDGET_PX = 1500;
