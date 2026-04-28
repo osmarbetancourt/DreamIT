@@ -102,7 +102,7 @@ export default function PlanetPreview({
           {/* Planet */}
           <Planet
             config={previewConfig}
-            state="foreground"
+            phase="orbiting"
           />
 
           {/* Controls */}
