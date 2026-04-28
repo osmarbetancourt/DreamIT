@@ -163,10 +163,11 @@ export default function Planet({ config, phase, onHover, onClick, onEmergenceCom
       // Aim the glide at the *actual* first orbital position (time=0 in the
       // orbiting formula below) so the planet doesn't snap when phase flips.
       const initAngleRad = config.orbit.initialAngle * Math.PI / 180;
+      const orbitZ = -13 - config.orbit.radius * 0.85;
       const orbitStart = new THREE.Vector3(
         Math.cos(initAngleRad) * config.orbit.radius * 1.5,
         Math.sin(initAngleRad) * config.orbit.radius * 0.3 + 1.8,
-        -17,
+        orbitZ,
       );
       groupRef.current.position.lerpVectors(emergenceEnd, orbitStart, easedProgress);
 
@@ -197,7 +198,10 @@ export default function Planet({ config, phase, onHover, onClick, onEmergenceCom
       const angle = easedTime * config.orbit.speed * 0.1 + config.orbit.initialAngle * Math.PI / 180;
       const x = Math.cos(angle) * config.orbit.radius * 1.5;
       const y = Math.sin(angle) * config.orbit.radius * 0.3 + 1.8;
-      groupRef.current.position.set(x, y, -17);
+      // Per-planet depth: bigger orbit radius = further from camera. Gives
+      // real parallax + occlusion when planets line up on screen.
+      const z = -13 - config.orbit.radius * 0.85;
+      groupRef.current.position.set(x, y, z);
     }
   });
 
